@@ -25,3 +25,10 @@ Finally:
 ```sh
 pip install flax
 ```
+
+## Downloading Data 
+Grant execution access to script, download data and unzip
+```sh 
+chmod +x ./get-horse2zebra.sh
+./get-horse2zebra.sh
+```
