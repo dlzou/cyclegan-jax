@@ -7,7 +7,7 @@
 TODO: script to automatically install dependencies?
 
 ```sh
-conda env create -n cs182-proj python=3.9
+conda create -n cs182-proj python=3.9
 conda activate cs182-proj
 ```
 
