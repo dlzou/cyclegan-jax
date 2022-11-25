@@ -24,6 +24,7 @@ pip install --upgrade "jax[cpu]"
 Finally:
 ```sh
 pip install flax
+pip install torch torchvision
 ```
 
 ## Downloading Data 
