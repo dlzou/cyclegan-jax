@@ -4,47 +4,38 @@ References:
     Learning rate scheduling docs:
     https://flax.readthedocs.io/en/latest/guides/lr_schedule.html
 	https://optax.readthedocs.io/en/latest/api.html
+
+	Author Implementation: 
+	https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py
 """
 
-import numpy as np
-import jax
-import jax.numpy as jnp
 import flax.linen as nn
 from image_pool import ImagePool
-import networks
 import optax
-import itertools
 
 class CycleGan(nn.Module):
 	# TODO: putting model options here ok? 
-	training: bool 
 	pool_size: int 
-	learning_rate: float 
-	beta1: float
 	
 	def setup(self):
-
-		self.G_A2B = None
-		self.G_B2A = None
+		self.G_A2B = None # Fill in 
+		self.G_B2A = None # Fill in 
 
 		if self.training: 
-			self.D_A = None
-			self.D_B = None
+			self.D_A = None # Fill in 
+			self.D_B = None # Fill in 
 
-		# if self.training:
-		self.fake_A_pool = ImagePool(self.pool_size)  # create image buffer to store previously generated images
-		self.fake_B_pool = ImagePool(self.pool_size)  # create image buffer to store previously generated images
-		# define loss functions
-		self.criterionGAN = networks.GANLoss().to(self.device)  # define GAN loss.
-		self.criterionCycle = networks.L1Loss()
-		self.criterionIdt = networks.L1Loss()
-		# initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-		self.optimizer_G = optax.adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=self.learning_rate, betas=(self.beta1, 0.999))
-		self.optimizer_D = optax.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=self.lr, betas=(self.beta1, 0.999))
-		self.optimizers.append(self.optimizer_G)
-		self.optimizers.append(self.optimizer_D)
+		if self.training:
+			self.fake_A_pool = ImagePool(self.pool_size)  # create image buffer to store previously generated images
+			self.fake_B_pool = ImagePool(self.pool_size)  # create image buffer to store previously generated images
 	
+	# This is the equivalent of the forward() method in PyTorch.
 	def __call__(self, x):
-		pass
+		fake_B = self.G_A2B(self.real_A)  # G_A(A)
+		rec_A = self.G_B2A(self.fake_B)   # G_B(G_A(A))
+		fake_A = self.G_B2A(self.real_B)  # G_B(B)
+		rec_B = self.G_A2B(self.fake_A)   # G_A(G_B(B))
+		return fake_B, rec_A, fake_A, rec_B
 
-	
+
+
