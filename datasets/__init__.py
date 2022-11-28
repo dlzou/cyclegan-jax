@@ -2,6 +2,7 @@ from .animal import ANIMAL
 import jax.numpy as jnp
 
 # Note: this code is from https://github.com/google/flax/blob/acb4ce0564b76f735799d19f516c1106fee9d3cb/examples/mnist/train.py#L98
+# Decide if we want to follow this convention or change 
 def get_datasets():
   """Load MNIST train and test datasets into memory."""
   train_ds = None 
