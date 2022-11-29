@@ -14,21 +14,39 @@ from flax.training import train_state
 import optax
 import networks
 import itertools
-import datasets
+import data
 import numpy as np
 import config
 
 # Do we need to keep track of 4 training states since we have 4 models?
-def create_train_state(rng):
+def create_train_state(rng, module):
   """Creates initial `TrainState`."""
-  model = CycleGan()
+  model = module()
   # TODO: Initialize model parameters 
   params = model.init(rng, jnp.ones([1, 28, 28, 1]))['params'] 
-  optimizer_G = optax.adam(config.learning_rate, b1=config.beta1)
-  optimizer_D = optax.adam(config.learning_rate, b1=config.beta1) 
+  optimizer = optax.adam(config.learning_rate, b1=config.beta1) 
   # Create states for all optimizers and parameters
   return train_state.TrainState.create(
-      apply_fn=model.apply, params=params, tx=[optimizer_G, optimizer_D])
+      apply_fn=model.apply, params=params, tx=optimizer)
+
+
+# @partial(jax.pmap, axis_name='num_devices')
+def discriminator_step(generator_state: train_state.TrainState,
+                       discriminator_state: train_state.TrainState,
+                       real_data: jnp.ndarray,
+                       key: jnp.ndarray):
+  r"""The discriminator is updated by critiquing both real and generated data,
+  It's loss goes down as it predicts correctly if images are real or generated.
+  """
+  pass
+
+def generator_step(generator_state: train_state.TrainState,
+                   discriminator_state: train_state.TrainState,
+                   key: jnp.ndarray):
+  r"""The generator is updated by generating data and letting the discriminator
+  critique it. It's loss goes down if the discriminator wrongly predicts it to
+  to be real data."""
+  pass
 
 @jax.jit
 def apply_model(state, images, labels):
@@ -51,7 +69,7 @@ def apply_model(state, images, labels):
 	# D_A and D_B
 	# set D_A and D_B's gradients to zero
 	# calculate gradients for D_A
-	# calculate graidents for D_B
+	# calculate gradients for D_B
 	# update D_A and D_B's weights
 
   grad_fn = jax.value_and_grad(criterionGAN, has_aux=True)
@@ -97,15 +115,17 @@ def train_and_evaluate() -> train_state.TrainState:
   Returns:
     The train state (which includes the `.params`).
   """
-  train_ds, test_ds = datasets.get_datasets()
+  dataIterator = data.create_dataset()
   rng = jax.random.PRNGKey(182)
 
   rng, init_rng = jax.random.split(rng)
-  state = create_train_state(init_rng, config)
+
+  state_G = create_train_state(init_rng, networks.Generator)
+  state_D = create_train_state(init_rng, networks.Discriminator)
 
   for epoch in range(1, config.num_epochs + 1):
     rng, input_rng = jax.random.split(rng)
-    state, train_loss, train_accuracy = train_epoch(state, train_ds,
+    state, train_loss, train_accuracy = train_epoch(state, dataIterator,
                                                     config.batch_size,
                                                     input_rng)
     _, test_loss, test_accuracy = apply_model(state, test_ds['image'],

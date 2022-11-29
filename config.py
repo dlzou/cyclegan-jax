@@ -2,7 +2,7 @@ import torch
 
 num_epochs = 10
 batch_size = 128
-learning_rate = 0.001
+learning_rate = 0.002
 beta1 = 0.9
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 configurations = {
