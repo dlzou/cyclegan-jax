@@ -19,13 +19,13 @@ import numpy as np
 import config
 
 # Do we need to keep track of 4 training states since we have 4 models?
-def create_train_state(rng, config):
+def create_train_state(rng):
   """Creates initial `TrainState`."""
   model = CycleGan()
   # TODO: Initialize model parameters 
   params = model.init(rng, jnp.ones([1, 28, 28, 1]))['params'] 
-  optimizer_G = optax.adam(itertools.chain(model.netG_A.parameters(), model.netG_B.parameters()), lr=config.learning_rate, betas=(config.beta1, 0.999))
-  optimizer_D = optax.adam(itertools.chain(model.netD_A.parameters(), model.netD_B.parameters()), lr=config.learning_rate, betas=(config.beta1, 0.999))
+  optimizer_G = optax.adam(config.learning_rate, b1=config.beta1)
+  optimizer_D = optax.adam(config.learning_rate, b1=config.beta1) 
   # Create states for all optimizers and parameters
   return train_state.TrainState.create(
       apply_fn=model.apply, params=params, tx=[optimizer_G, optimizer_D])
