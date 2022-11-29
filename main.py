@@ -1,7 +1,7 @@
 import argparse
 import config 
 import pprint
-import train
+import data
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(prog="CycleGAN", description="CycleGAN")
@@ -15,6 +15,9 @@ if __name__ == '__main__':
 		
 	elif arg.predict:
 		print("Predicting file: {}".format(arg.predict))
+		ds  = data.create_dataset()
+
+
 	else: 
 		print("No flag specified")
 		print("Use --train for training")
