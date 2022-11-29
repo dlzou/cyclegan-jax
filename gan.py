@@ -37,7 +37,7 @@ class CycleGan():
 		
   		# Create states for all optimizers and parameters
 		self.state_G = TrainState.create(
-      		apply_fn=self.self.train_fn_G, params=itertools.chain(), tx=self.optimizer_G
+      		apply_fn=self.train_fn_G, params=itertools.chain(), tx=self.optimizer_G
 		)
 
 		self.D_A = Discriminator()
@@ -48,9 +48,9 @@ class CycleGan():
 		)
 
 	def train_fn_G(self):
-		
+		pass
 
-	def train_fn_G(self):
+	def forward_G(self):
 		"""Run forward pass; called by both functions <optimize_parameters> and <test>."""
 		self.fake_B = self.netG_A(self.real_A)  # G_A(A)
 		self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
