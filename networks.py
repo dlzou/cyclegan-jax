@@ -98,6 +98,7 @@ class Discriminator(nn.Module):
             init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
             gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
         """
+        super().__init__()
         net = None
         #norm_layer = nn.GroupNorm(group_size=1) #only use groupnorm at this stage
         use_bias = False
