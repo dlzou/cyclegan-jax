@@ -19,7 +19,7 @@ class Generator(nn.Module):
     The generator would...
     """
     
-    def __init__(self, input_nc, output_nc, ngf=64, n_blocks=6):
+    def __init__(self, output_nc, ngf=64, n_res_blocks=6, use_dropout=True):
         """docstring"""
         super().__init__() # needed?
         model = [
@@ -27,30 +27,58 @@ class Generator(nn.Module):
             nn.GroupNorm(group_size=1), # instance norm
             nn.relu,
         ]
-        self.model = nn.Sequential(*model)
 
         # Downsampling layers.
         n_downsample_layers = 2
         for i in range(n_downsample_layers):
             mult = 2 ** i
             model += [
-                nn.Conv(features=ngf * mult * 2, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
-                nn.GroupNorm(group_size=1), # instance norm nn.relu,
+                nn.Conv(features=ngf * mult * 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
+                nn.GroupNorm(group_size=1), # instance norm
                 nn.relu,
             ]
         
         # Resnet transformation blocks.
+        mult = 2 ** n_downsample_layers
+        for i in range(n_res_blocks):
+            model += [ResnetBlock(ngf * mult, use_dropout)]
         
         # Upsampling layers.
+        for i in range(n_downsample_layers):
+            mult = 2 ** (n_downsample_layers - i)
+            model += [
+                nn.ConvTranspose(features=(ngf * mult) // 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
+                nn.GroupNorm(group_size=1), # instance norm
+                nn.relu,
+            ]
+        model += [nn.Conv(features=output_nc, kernel_size=[7, 7], padding=0)]
+        model += [nn.activation.tanh]
+        
+        self.model = nn.Sequential(*model)
     
     def forward(self, input):
-        return self.mdoel(input)
+        return self.model(input)
 
 
 class ResnetBlock(nn.Module):
 
-    def __init__(self):
-        pass
+    def __init__(self, features, use_dropout):
+        super().__init__()
+        model = [
+            nn.Conv(features=features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
+            nn.GroupNorm(group_size=1), # instance norm
+            nn.relu,
+        ]
+        if use_dropout:
+            model += [nn.Dropout(0.5)]
+        model += [
+            nn.Conv(features=features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
+            nn.GroupNorm(group_size=1), # instance norm
+        ]
+        self.model = nn.Sequential(*model)
+    
+    def forward(self, input):
+        return input + self.model(input)
 
 
 class Discriminator(nn.Module):
