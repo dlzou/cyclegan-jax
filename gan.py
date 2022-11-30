@@ -17,14 +17,12 @@ import jax.numpy as jnp
 import jax
 import optax
 
-from image_pool import ImagePool
 from networks import Discriminator, Generator, GanLoss, L1Loss
-import config
 
 
 class CycleGan:
 
-    def __init__(self, options):
+    def __init__(self, opts):
         # Initialize generators
         self.G = Generator() # Set parameters
         self.D = Discriminator()
@@ -33,9 +31,9 @@ class CycleGan:
         self.criterion_cycle = L1Loss()
         self.criterion_id = L1Loss()
 
-        self.lambda_A = options.lambda_A # loss weight on inputs from set A
-        self.lambda_B = options.lambda_B # loss weight on inputs from set B
-        self.lambda_id = options.lambda_id
+        self.lambda_A = opts.lambda_A # weight of loss on inputs from set A
+        self.lambda_B = opts.lambda_B # weight of loss on inputs from set B
+        self.lambda_id = opts.lambda_id # weight of identity loss
 
         
     def get_generator_params(self, rng, input_shape):
@@ -72,10 +70,10 @@ class CycleGan:
         return (fake_B, recover_A, fake_A, recover_B)
     
     def train_generator_backward(self, params, generated_data, real_data):
-        params_G_A = params[0]
-        params_G_B = params[1]
-        params_D_A = params[2]
-        params_D_B = params[3]
+        params_G_A = params[0] #params_G_A
+        params_G_B = params[1] #params_G_B
+        params_D_A = params[2] #from d_A_state, (params_D_A, _D_B)
+        params_D_B = params[3] #from d_B_state, (params_D_A, _D_B)
 
         fake_B = generated_data[0]
         recover_A = generated_data[1]
@@ -88,7 +86,7 @@ class CycleGan:
         # Compute 3-criteria loss function
         
         # GAN loss D_A(G_A(A))
-        loss_G_A = self.criterion_gan(self.D.apply({"params": params_D_A}, fake_B))
+        loss_G_A = self.criterion_gan(self.D.apply({"params": params_D_A}, fake_B)) #====================>
         # GAN loss D_B(G_B(B))
         loss_G_B = self.criterion_gan(self.D.apply({"params": params_D_B}, fake_A))
 
@@ -134,7 +132,7 @@ def create_generator_state(
     learning_rate: float,
     beta_1: float,
 ):
-    params_G = model.get_generator_params(rng, input_shape) #params of both G_A and G_B
+    params_G = model.get_generator_params(rng, input_shape) #get params of both G_A and G_B
     tx = optax.adam(learning_rate, b1=beta_1)
     return TrainState.create(
         apply_fn=None, params=params_G, tx=tx,
@@ -148,7 +146,7 @@ def create_discriminator_state(
     learning_rate: float,
     beta_1: float,
 ):
-    params = model.get_discriminator_params(rng, input_shape) #params of both D_A and D_B
+    params = model.get_discriminator_params(rng, input_shape) #get params of both D_A and D_B
     tx = optax.adam(learning_rate, b1=beta_1)
     return TrainState.create(
         apply_fn=None, params=params, tx=tx,
@@ -168,10 +166,10 @@ def generator_step(
     critique it. It's loss goes down if the discriminator wrongly predicts it to
     to be real data.
     """
-    def loss_fn(params):
-        generated_data = model.train_generator_forward(params, real_data) #======================>
+    def loss_fn(params): #param: g_state.params
+        generated_data = model.train_generator_forward(params, real_data) #======================> fake, rec
         backward_params = (params[0], params[1], d_A_state.params, d_B_state.params)
-        loss = model.train_generator_backward(backward_params, generated_data, real_data)
+        loss = model.train_generator_backward(backward_params, generated_data, real_data) #=========================>
         return loss, generated_data
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True) #grad_fn has the same argument as loss_fn, but evaluate both loss_fn and grad of loss_fn
     (loss, generated_data), grads = grad_fn(g_state.params)

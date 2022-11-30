@@ -14,7 +14,7 @@ IMG_EXTENSIONS = [
 
 def make_dataset(dir, max_dataset_size=float("inf")):
     images = []
-    for root, _, fnames in sorted(os.walk(dir)):
+    for root, _, fnames in os.walk(dir):
         for fname in fnames:
             if is_image_file(fname):
                 path = os.path.join(root, fname)
@@ -32,7 +32,7 @@ class UnalignedDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.dir_A = os.path.join(opt.dataroot, opt.phase + 'A')  # phase in 'train, val, test, etc'
         self.dir_B = os.path.join(opt.dataroot, opt.phase + 'B') 
-
+        
         self.A_paths = sorted(make_dataset(self.dir_A, opt.max_dataset_size))   # load images from '/path/to/data/trainA'
         self.B_paths = sorted(make_dataset(self.dir_B, opt.max_dataset_size))    # load images from '/path/to/data/trainB'
         self.A_size = len(self.A_paths)  # get the size of dataset A
@@ -42,6 +42,7 @@ class UnalignedDataset(BaseDataset):
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
+        
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.

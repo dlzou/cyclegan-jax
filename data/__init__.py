@@ -2,6 +2,7 @@ import torch.utils.data
 from data.base_dataset import BaseDataset
 from data.unaligned_dataset import UnalignedDataset
 import os 
+from types import SimpleNamespace
 
 def create_dataset(opt={}):
     opt = {
@@ -11,10 +12,17 @@ def create_dataset(opt={}):
         'no_flip':True, 
         'display_winsize': 256,
         'num_threads': 4,
-        'batch_size': 1,
+        'batch_size': 16,
         'load_size': 286,
         'crop_size': 256,
+        'dataroot': "./horse2zebra", 
+        "phase":"train", 
+        "direction": "AtoB", 
+        "input_nc": 3, 
+        "output_nc": 3, 
+        "serial_batches": True,
     }
+    opt = SimpleNamespace(**opt)
     data_loader = CustomDatasetDataLoader(opt)
     dataset = data_loader.load_data()
     return dataset
