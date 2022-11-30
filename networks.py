@@ -19,11 +19,15 @@ class Generator(nn.Module):
     The generator would...
     """
     
-    def __init__(self, output_nc, ngf=64, n_res_blocks=6, use_dropout=True):
+    output_nc: int
+    ngf: int = 64
+    n_res_blocks: int = 6
+    use_dropout: bool = True
+        
+    def setup(self):
         """docstring"""
-        super().__init__() # needed?
         model = [
-            nn.Conv(features=ngf, kernel_size=[7, 7], padding=[(3, 3), (3, 3)]),
+            nn.Conv(features=self.ngf, kernel_size=[7, 7], padding=[(3, 3), (3, 3)]),
             nn.GroupNorm(group_size=1), # instance norm
             nn.relu,
         ]
@@ -33,46 +37,51 @@ class Generator(nn.Module):
         for i in range(n_downsample_layers):
             mult = 2 ** i
             model += [
-                nn.Conv(features=ngf * mult * 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
+                nn.Conv(features=self.ngf * mult * 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
                 nn.GroupNorm(group_size=1), # instance norm
                 nn.relu,
             ]
         
         # Resnet transformation blocks.
         mult = 2 ** n_downsample_layers
-        for i in range(n_res_blocks):
-            model += [ResnetBlock(ngf * mult, use_dropout)]
+        for i in range(self.n_res_blocks):
+            model += [ResnetBlock(self.ngf * mult, self.use_dropout)]
         
         # Upsampling layers.
         for i in range(n_downsample_layers):
             mult = 2 ** (n_downsample_layers - i)
             model += [
-                nn.ConvTranspose(features=(ngf * mult) // 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
+                nn.ConvTranspose(features=(self.ngf * mult) // 2, kernel_size=[3, 3], strides=2, padding=[(1, 1), (1, 1)]),
                 nn.GroupNorm(group_size=1), # instance norm
                 nn.relu,
             ]
-        model += [nn.Conv(features=output_nc, kernel_size=[7, 7], padding=0)]
+        model += [nn.Conv(features=self.output_nc, kernel_size=[7, 7], padding=0)]
         model += [nn.activation.tanh]
         
         self.model = nn.Sequential(*model)
     
-    def forward(self, input):
-        return self.model(input)
+    def __call__(self, input):
+        """Add skip connection between generator input and output.
+        
+        Reference: https://github.com/leehomyc/cyclegan-1
+        """
+        return input + self.model(input)
 
 
 class ResnetBlock(nn.Module):
 
-    def __init__(self, features, use_dropout):
-        super().__init__()
+    features: int
+
+    def setup(self):
         model = [
-            nn.Conv(features=features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
+            nn.Conv(features=self.features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
             nn.GroupNorm(group_size=1), # instance norm
             nn.relu,
         ]
-        if use_dropout:
+        if self.use_dropout:
             model += [nn.Dropout(0.5)]
         model += [
-            nn.Conv(features=features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
+            nn.Conv(features=self.features, kernel_size=[3, 3], padding=[(1, 1), (1, 1)]),
             nn.GroupNorm(group_size=1), # instance norm
         ]
         self.model = nn.Sequential(*model)
@@ -149,8 +158,6 @@ class Discriminator(nn.Module):
         return self.model(input)
 
 
-
-
 class GanLoss(nn.Module):
     """Define different GAN objectives.
     The GANLoss class abstracts away the need to create the target label tensor
@@ -170,6 +177,7 @@ class GanLoss(nn.Module):
         
     # TODO: Complete GAN Loss, reference here: 
     # https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/networks.py#L210
+
 
 class L1Loss(nn.Module):
     """

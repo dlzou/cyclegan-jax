@@ -10,7 +10,7 @@ References:
 """
 
 from functools import partial
-from typing import Sequence, Tuple
+from typing import Sequence
 
 from flax.training.train_state import TrainState
 import jax.numpy as jnp
@@ -23,10 +23,9 @@ from networks import Discriminator, Generator, GanLoss, L1Loss
 class CycleGan:
 
     def __init__(self, opts):
-        # Initialize generators
+        # The following are stateless; state is passed in later through params.
         self.G = Generator() # Set parameters
         self.D = Discriminator()
-
         self.criterion_gan = GanLoss()
         self.criterion_cycle = L1Loss()
         self.criterion_id = L1Loss()
@@ -45,9 +44,8 @@ class CycleGan:
         return (params_G_A, params_G_B)
 
     def get_discriminator_params(self, rng, input_shape):
-        params_D_A = self.D.init(rng, jnp.ones(input_shape))["params"]
-        params_D_B = self.D.init(rng, jnp.ones(input_shape))["params"]
-        return (params_D_A, params_D_B)
+        params_D = self.D.init(rng, jnp.ones(input_shape))["params"]
+        return params_D
 
     def train_generator_forward(self, params, real_data):
         """
@@ -70,10 +68,10 @@ class CycleGan:
         return (fake_B, recover_A, fake_A, recover_B)
     
     def train_generator_backward(self, params, generated_data, real_data):
-        params_G_A = params[0] #params_G_A
-        params_G_B = params[1] #params_G_B
-        params_D_A = params[2] #from d_A_state, (params_D_A, _D_B)
-        params_D_B = params[3] #from d_B_state, (params_D_A, _D_B)
+        params_G_A = params[0]
+        params_G_B = params[1]
+        params_D_A = params[2]
+        params_D_B = params[3]
 
         fake_B = generated_data[0]
         recover_A = generated_data[1]
@@ -146,7 +144,7 @@ def create_discriminator_state(
     learning_rate: float,
     beta_1: float,
 ):
-    params = model.get_discriminator_params(rng, input_shape) #get params of both D_A and D_B
+    params = model.get_discriminator_params(rng, input_shape) #parameter for eithe G_A or G_B
     tx = optax.adam(learning_rate, b1=beta_1)
     return TrainState.create(
         apply_fn=None, params=params, tx=tx,
@@ -160,7 +158,7 @@ def generator_step(
     g_state: TrainState,
     d_A_state: TrainState,
     d_B_state: TrainState,
-    real_data: Tuple[jnp.ndarray, jnp.ndarray],
+    real_data: tuple[jnp.ndarray, jnp.ndarray],
 ):
     """The generator is updated by generating data and letting the discriminator
     critique it. It's loss goes down if the discriminator wrongly predicts it to
@@ -184,8 +182,8 @@ def discriminator_step(
     model: CycleGan,
     d_A_state: TrainState,
     d_B_state: TrainState,
-    real_data: Tuple[jnp.ndarray, jnp.ndarray],
-    fake_data: Tuple[jnp.ndarray, jnp.ndarray],
+    real_data: tuple[jnp.ndarray, jnp.ndarray],
+    fake_data: tuple[jnp.ndarray, jnp.ndarray],
 ):
     """The discriminator is updated by critiquing both real and generated data,
     It's loss goes down as it predicts correctly if images are real or generated.
