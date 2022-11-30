@@ -166,7 +166,7 @@ class GanLoss(nn.Module):
     
     # TODO: Add gan_mode later
     def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
-                """ Initialize the GANLoss class.
+        """ Initialize the GANLoss class.
         Parameters:
             gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
             target_real_label (bool) - - label for a real image
@@ -174,6 +174,52 @@ class GanLoss(nn.Module):
         Note: Do not use sigmoid as the last layer of Discriminator.
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
         """
+        super(self).__init__()
+        self.gan_mode = gan_mode
+        self.target_real_label = target_real_label # related to register_buffer()
+        self.target_fake_label = target_fake_label
+        
+    def setup(self):
+        if self.gan_mode not in ['lsgan', 'vanila', 'wgangp']:
+            raise NotImplementedError('gan mode %s not implemented' % self.gan_mode)
+    
+    def get_target_tensor(self, prediction, target_is_real):
+        """Create label arrays with the same size as the input.
+
+        Parameters:
+            prediction (jnp.ndarray) - - tpyically the prediction from a discriminator
+            target_is_real (bool) - - if the ground truth label is for real images or fake images
+
+        Returns:
+            A label array filled with ground truth label, and with the size of the input
+        """
+        if target_is_real:
+            target_label = self.target_real_label
+        else:
+            target_label = self.target_fake_label
+        target = jnp.ones_like(a=prediction)
+        return target_label * target
+
+    def __call__(self, prediction, target_is_real):
+        target_array = self.get_target_tensor(prediction, target_is_real)
+        if self.gan_mode in ['lsgan']: #use MSELoss
+            loss_value = jnp.mean((prediction - target_array)**2)
+
+        if self.gan_mode in ['vanila']: #use BCEWithLogitsLoss
+            #source: https://github.com/deepchem/jaxchem/blob/master/jaxchem/loss/binary_cross_entropy_with_logits.py#L4-L37
+            if target_array.shape != prediction.shape:
+                raise ValueError("Target size ({}) must be the same as input size ({})".format(
+            target_array.shape, prediction.shape))
+
+            max_val = jnp.clip(-prediction, 0, None)
+            loss_value = prediction - prediction * target_array + max_val + jnp.log(jnp.exp(-max_val) + jnp.exp((-prediction - max_val)))
+            loss_value = jnp.mean(loss_value) #default to mean loss
+            
+        elif self.gan_mode in ['wgangp']:
+            if target_is_real: loss_value = -jnp.mean(prediction)
+            else: loss_value = jnp.mean(prediction)
+        return loss_value
+            
         
     # TODO: Complete GAN Loss, reference here: 
     # https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/networks.py#L210
