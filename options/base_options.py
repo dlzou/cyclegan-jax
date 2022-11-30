@@ -1,9 +1,20 @@
 import argparse
 import os
-from util import util
 import torch
 import models
 import data
+
+def mkdir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+def mkdirs(paths):
+    if isinstance(paths, list) and not isinstance(paths, str):
+        for path in paths:
+            mkdir(path)
+    else:
+        mkdir(paths)
+
 
 
 class BaseOptions():
@@ -107,7 +118,7 @@ class BaseOptions():
 
         # save to the disk
         expr_dir = os.path.join(opt.checkpoints_dir, opt.name)
-        util.mkdirs(expr_dir)
+        mkdirs(expr_dir)
         file_name = os.path.join(expr_dir, '{}_opt.txt'.format(opt.phase))
         with open(file_name, 'wt') as opt_file:
             opt_file.write(message)

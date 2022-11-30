@@ -99,45 +99,51 @@ class Discriminator(nn.Module):
             gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
         """
 
-        super().__init__()
+        self.ndf = ndf
+        self.netD = netD
+        self.n_layers = n_layers
+        self.norm = norm
+        self.init_type = init_type
+        self.init_gain = init_gain
 
+    def setup(self):
         net = None
         #norm_layer = nn.GroupNorm(group_size=1) #only use groupnorm at this stage
         use_bias = False
         
-        if netD == "n_layers" or "basic": #build N_layer discriminator
+        if self.netD == "n_layers" or "basic": #build N_layer discriminator
             kw, padw = 4, 1 #kernel width, padding width
-            sequence = [nn.Conv(features=ndf, kernel_size=kw, strides=2, padding=padw), 
+            sequence = [nn.Conv(features=self.ndf, kernel_size=kw, strides=2, padding=padw), 
                         nn.PReLU(negative_slope_init=0.2)]
             nf_mult = 1
             #nf_mult_prev = 1
-            for n in range(1, n_layers): #gradually increase the number of filters
+            for n in range(1, self.n_layers): #gradually increase the number of filters
                 #nf_mult_prev = nf_mult
                 nf_mult = jnp.min(2**n, 8)
-                sequence += [nn.Conv(features=ndf*nf_mult, kernel_size=kw, strides=2, padding=padw,use_bias=use_bias),
+                sequence += [nn.Conv(features=self.ndf*nf_mult, kernel_size=kw, strides=2, padding=padw,use_bias=use_bias),
                              nn.GroupNorm(group_size=1),
                              nn.PReLU(negative_slope_init=0.2)]
             
             #nf_mult_prev = nf_mult
-            nf_mult = jnp.min(2**n_layers, 8)
-            sequence += [nn.Conv(features=ndf*nf_mult, kernel_size=kw, strides=2, padding=padw, use_bias=use_bias),
+            nf_mult = jnp.min(2**self.n_layers, 8)
+            sequence += [nn.Conv(features=self.ndf*nf_mult, kernel_size=kw, strides=2, padding=padw, use_bias=use_bias),
                          nn.GroupNorm(group_size=1),
                          nn.PReLU(negative_slope_init=0.2)]
             
             sequence += [nn.Conv(1, kernel_size=kw, strides=1, padding=padw)]
             self.model = nn.Sequential(layers=sequence)
         
-        elif netD == "pixel":
-            sequence = [nn.Conv(features=ndf, kernel_size=1, stride=1, padding=0),
+        elif self.netD == "pixel":
+            sequence = [nn.Conv(features=self.ndf, kernel_size=1, stride=1, padding=0),
                         nn.PReLU(negative_slope_init=0.2),
-                        nn.Conv(features=ndf*2, kernel_size=1, strides=1, padding=0, use_bias=use_bias),
+                        nn.Conv(features=self.ndf*2, kernel_size=1, strides=1, padding=0, use_bias=use_bias),
                         nn.GroupNorm(group_size=1),
                         nn.PReLU(negative_slope_init=0.2),
                         nn.Conv(features=1, kernel_size=1, strides=1, padding=0, use_bias=use_bias)]
             self.model = nn.Sequential(layers=sequence)
 
         else:
-            NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
+            NotImplementedError('Discriminator model name [%s] is not recognized' % self.netD)
  
     def __call__(self, input):
         return self.model(input)

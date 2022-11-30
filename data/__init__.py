@@ -1,15 +1,26 @@
-import importlib
 import torch.utils.data
 from data.base_dataset import BaseDataset
 from data.unaligned_dataset import UnalignedDataset
 import os 
 
-def create_dataset(opt):
+def create_dataset(opt={}):
+    opt = {
+        'dataset_mode':'unaligned', 
+        'max_dataset_size':float("inf"), 
+        'preprocess':'resize_and_crop',
+        'no_flip':True, 
+        'display_winsize': 256,
+        'num_threads': 4,
+        'batch_size': 1,
+        'load_size': 286,
+        'crop_size': 256,
+    }
     data_loader = CustomDatasetDataLoader(opt)
     dataset = data_loader.load_data()
     return dataset
-class CustomDatasetDataLoader():
 
+
+class CustomDatasetDataLoader():
     def __init__(self, opt):
         self.opt = opt
         self.dataset = UnalignedDataset(opt)
