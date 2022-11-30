@@ -40,6 +40,7 @@ Finally:
 ```sh
 pip install flax
 pip install torch torchvision
+pip install jupyter
 ```
 
 ## Downloading Data

@@ -77,7 +77,7 @@ class ResnetBlock(nn.Module):
         ]
         self.model = nn.Sequential(*model)
     
-    def forward(self, input):
+    def __call__(self, input):
         return input + self.model(input)
 
 
@@ -139,7 +139,7 @@ class Discriminator(nn.Module):
         else:
             NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
  
-    def forward(self, input):
+    def __call__(self, input):
         return self.model(input)
 
 

@@ -10,7 +10,7 @@ References:
 from gan import CycleGan
 import jax 
 import jax.numpy as jnp
-from flax.training import train_state
+from flax.training.train_state import TrainState
 import optax
 import networks
 import itertools
@@ -26,13 +26,13 @@ def create_train_state(rng, module):
   params = model.init(rng, jnp.ones([1, 28, 28, 1]))['params'] 
   optimizer = optax.adam(config.learning_rate, b1=config.beta1) 
   # Create states for all optimizers and parameters
-  return train_state.TrainState.create(
+  return TrainState.create(
       apply_fn=model.apply, params=params, tx=optimizer)
 
 
 # @partial(jax.pmap, axis_name='num_devices')
-def discriminator_step(generator_state: train_state.TrainState,
-                       discriminator_state: train_state.TrainState,
+def discriminator_step(g_state: TrainState,
+                       d_state: TrainState,
                        real_data: jnp.ndarray,
                        key: jnp.ndarray):
   r"""The discriminator is updated by critiquing both real and generated data,
@@ -40,8 +40,8 @@ def discriminator_step(generator_state: train_state.TrainState,
   """
   pass
 
-def generator_step(generator_state: train_state.TrainState,
-                   discriminator_state: train_state.TrainState,
+def generator_step(generator_state: TrainState,
+                   discriminator_state: TrainState,
                    key: jnp.ndarray):
   r"""The generator is updated by generating data and letting the discriminator
   critique it. It's loss goes down if the discriminator wrongly predicts it to
