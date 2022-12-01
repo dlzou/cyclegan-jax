@@ -297,6 +297,12 @@ class GanLoss(nn.Module):
     def __call__(self, prediction, target_is_real):
         target_array = self.get_target_tensor(prediction, target_is_real)
         if self.gan_mode in ["lsgan"]:  # use MSELoss
+            if target_array.shape != prediction.shape:
+                raise ValueError(
+                    "Target size ({}) must be the same as input size ({})".format(
+                        target_array.shape, prediction.shape
+                    )
+                )
             loss_value = jnp.mean((prediction - target_array) ** 2)
 
         if self.gan_mode in ["vanila"]:  # use BCEWithLogitsLoss
@@ -334,4 +340,15 @@ class L1Loss(nn.Module):
     """
 
     def __init__():
-        pass
+        super.__init__()
+
+    def __call__(self, prediction, target_array):
+        if target_array.shape != prediction.shape:
+                raise ValueError(
+                    "Target size ({}) must be the same as input size ({})".format(
+                        target_array.shape, prediction.shape
+                    )
+                )
+        absolute = jnp.abs(target_array - prediction)
+        return jnp.mean(absolute)
+    
