@@ -89,10 +89,14 @@ class CycleGan:
 
         # GAN loss D_A(G_A(A))
         loss_G_A = self.criterion_gan(
-            self.D.apply({"params": params_D_A}, fake_B)
+            self.D.apply({"params": params_D_A}, fake_B),
+            target_is_real= True
         )  # ====================>
         # GAN loss D_B(G_B(B))
-        loss_G_B = self.criterion_gan(self.D.apply({"params": params_D_B}, fake_A))
+        loss_G_B = self.criterion_gan(
+            self.D.apply({"params": params_D_B}, fake_A),
+            target_is_real=True
+        )
 
         # Cycle loss ||G_B(G_A(A)) - A||
         loss_cycle_A = self.criterion_cycle(recover_A, real_A) * self.lambda_A
