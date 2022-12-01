@@ -13,6 +13,7 @@ from typing import Callable
 import numpy as np
 import jax
 import jax.numpy as jnp
+
 # import flax.linen as nn
 from flax import linen as nn
 
@@ -58,22 +59,24 @@ class Generator(nn.Module):
 
     # def __post_init__(self):
     #     super().__post_init__() # <-- forgot to add this line
-    
+
     @nn.compact
     def __call__(self, x):
         input_x = x
         # First convolution layer.
-        first_conv = nn.Sequential([
-            nn.Conv(
-                features=self.ngf,
-                kernel_size=[7, 7],
-                strides=[1, 1],
-                padding="SAME",
-                kernel_init=self.initializer,
-            ),
-            nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
-            nn.relu,
-        ])
+        first_conv = nn.Sequential(
+            [
+                nn.Conv(
+                    features=self.ngf,
+                    kernel_size=[7, 7],
+                    strides=[1, 1],
+                    padding="SAME",
+                    kernel_init=self.initializer,
+                ),
+                nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
+                nn.relu,
+            ]
+        )
         x = first_conv(x)
 
         # Downsampling layers.
@@ -99,7 +102,13 @@ class Generator(nn.Module):
         mult = 2**n_downsample_layers
         model = []
         for i in range(self.n_res_blocks):
-            model += [ResnetBlock(features=self.ngf * mult, use_dropout=self.use_dropout, initializer=self.initializer)]
+            model += [
+                ResnetBlock(
+                    features=self.ngf * mult,
+                    use_dropout=self.use_dropout,
+                    initializer=self.initializer,
+                )
+            ]
         transform = nn.Sequential(model)
         x = transform(x)
 
@@ -134,7 +143,7 @@ class Generator(nn.Module):
         last_conv = nn.Sequential(model)
         x = last_conv(x)
 
-        #Add skip connection between generator input and output.
+        # Add skip connection between generator input and output.
         # Reference: https://github.com/leehomyc/cyclegan-1
         return x + input_x
 
@@ -185,6 +194,7 @@ class Discriminator(nn.Module):
     The discriminator would take an image input and predict if it's an original
     or the output from the generator.
     """
+
     """
     Parameters:
         ndf (int)          -- the number of filters in the first conv layer
@@ -192,7 +202,7 @@ class Discriminator(nn.Module):
         n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
         init_type (str)    -- the name of the initialization method.
     """
-    ndf: int = 64 # TODO: What's this?? 
+    ndf: int = 64  # TODO: What's this??
     netD: str = "n_layers"
     n_layers: int = 3
     initializer: Callable = jax.nn.initializers.normal(stddev=0.02)
@@ -278,7 +288,7 @@ class Discriminator(nn.Module):
             sequence = [
                 nn.Conv(
                     features=self.ndf,
-                    kernel_size=[1,1],
+                    kernel_size=[1, 1],
                     stride=1,
                     padding=0,
                     kernel_init=self.initializer,
@@ -286,7 +296,7 @@ class Discriminator(nn.Module):
                 nn.PReLU(negative_slope_init=0.2),
                 nn.Conv(
                     features=self.ndf * 2,
-                    kernel_size=[1,1],
+                    kernel_size=[1, 1],
                     strides=1,
                     padding=0,
                     use_bias=use_bias,
@@ -296,7 +306,7 @@ class Discriminator(nn.Module):
                 nn.PReLU(negative_slope_init=0.2),
                 nn.Conv(
                     features=1,
-                    kernel_size=[1,1],
+                    kernel_size=[1, 1],
                     strides=1,
                     padding=0,
                     use_bias=use_bias,

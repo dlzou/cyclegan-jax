@@ -16,7 +16,7 @@ import jax
 import optax
 import pprint
 from tqdm import tqdm
-import torch 
+import torch
 
 from gan import (
     CycleGan,
@@ -39,24 +39,23 @@ def train(model_opts, dataset_opts):
     model = CycleGan(model_opts)
     training_data = dataset.create_dataset(dataset_opts)
 
-
     # Initialize States
     key = jax.random.PRNGKey(1337)
-    g_state = create_generator_state(
+    key, g_state = create_generator_state(
         key,
         model,
         model_opts.input_shape,
         model_opts.learning_rate,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both G_A and G_B, and optimizer
-    d_A_state = create_discriminator_state(
+    key, d_A_state = create_discriminator_state(
         key,
         model,
         model_opts.input_shape,
         model_opts.learning_rate,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both D_A and D_B, and optimizer
-    d_B_state = create_discriminator_state(
+    key, d_B_state = create_discriminator_state(
         key,
         model,
         model_opts.input_shape,
@@ -85,8 +84,8 @@ def train(model_opts, dataset_opts):
             real_A, real_B = jnp.array(real_A), jnp.array(real_B)
             # breakpoint()
             # G step
-            loss, g_state, generated_data = generator_step(
-                model, g_state, d_A_state, d_B_state, (real_A, real_B)
+            key, loss, g_state, generated_data = generator_step(
+                key, model, g_state, d_A_state, d_B_state, (real_A, real_B)
             )
             fake_B, _, fake_A, _ = generated_data
             g_losses.append(loss)
@@ -120,6 +119,7 @@ def train(model_opts, dataset_opts):
 
     # TODO: Plot losses, visualize generated images
 
+
 model_opts = {
     "input_shape": [1, 256, 256, 3],
     "output_nc": 3,
@@ -140,8 +140,8 @@ model_opts = {
     # Lambdas are set with defaults from the source code
     # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
     "lambda_A": 10.0,
-    "lambda_B": 10.0, 
-    "lambda_id": 0.5, 
+    "lambda_B": 10.0,
+    "lambda_id": 0.5,
 }
 
 dataset_opts = {
