@@ -32,7 +32,7 @@ class ImagePool:
         return_images = []
         for image in images:
             # image = torch.unsqueeze(image.data, 0)
-            image = jnp.expand_dims(image.data, 0)
+            image = jnp.expand_dims(image, 0)
             if (
                 self.num_imgs < self.pool_size
             ):  # if the buffer is not full; keep inserting current images to the buffer

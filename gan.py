@@ -23,18 +23,13 @@ from networks import Discriminator, Generator, GanLoss, L1Loss
 class CycleGan:
     def __init__(self, opts):
         # The following are stateless; state is passed in later through params.
-        self.G = Generator(
-            opts.output_nc, opts.ngf, opts.n_res_blocks, opts.use_dropout
-        )
-        self.D = Discriminator(
-            opts.ndf,
-            opts.netD,
-            opts.n_layers,
-        )
-        self.criterion_gan = GanLoss()
+        self.G = Generator(output_nc=opts.output_nc, ngf=opts.ngf, n_res_blocks=opts.n_res_blocks, use_dropout=opts.use_dropout, initializer=opts.initializer)
+        self.D = Discriminator(ndf=opts.ndf)
+        self.criterion_gan = GanLoss(gan_mode="lsgan")
         self.criterion_cycle = L1Loss()
         self.criterion_id = L1Loss()
 
+        self.opts = opts
         self.lambda_A = opts.lambda_A  # weight of loss on inputs from set A
         self.lambda_B = opts.lambda_B  # weight of loss on inputs from set B
         self.lambda_id = opts.lambda_id  # weight of identity loss
@@ -43,8 +38,9 @@ class CycleGan:
         """
         Reference: https://github.com/google/jax/issues/421
         """
-        params_G_A = self.G.init(rng, jnp.ones(input_shape))["params"]
-        params_G_B = self.G.init(rng, jnp.ones(input_shape))["params"]
+        init_rngs = {"params": rng, "dropout": jax.random.PRNGKey(1337)}
+        params_G_A = self.G.init(init_rngs, jnp.ones(input_shape))["params"]
+        params_G_B = self.G.init(init_rngs, jnp.ones(input_shape))["params"]
         return (params_G_A, params_G_B)
 
     def get_discriminator_params(self, rng, input_shape):
@@ -64,10 +60,11 @@ class CycleGan:
         real_B = real_data[1]
 
         # Forward through G
-        fake_B = self.G.apply({"params": params_G_A}, real_A)  # G_A(A)
-        recover_A = self.G.apply({"params": params_G_B}, fake_B)  # G_B(G_A(A))
-        fake_A = self.G.apply({"params": params_G_B}, real_B)  # G_B(B)
-        recover_B = self.G.apply({"params": params_G_A}, fake_A)  # G_A(G_B(B))
+        rngs = {"dropout": jax.random.PRNGKey(1337)}
+        fake_B = self.G.apply({"params": params_G_A}, real_A, rngs=rngs)  # G_A(A)
+        recover_A = self.G.apply({"params": params_G_B}, fake_B, rngs=rngs)  # G_B(G_A(A))
+        fake_A = self.G.apply({"params": params_G_B}, real_B, rngs=rngs)  # G_B(B)
+        recover_B = self.G.apply({"params": params_G_A}, fake_A, rngs=rngs)  # G_A(G_B(B))
 
         return (fake_B, recover_A, fake_A, recover_B)
 
@@ -89,13 +86,11 @@ class CycleGan:
 
         # GAN loss D_A(G_A(A))
         loss_G_A = self.criterion_gan(
-            self.D.apply({"params": params_D_A}, fake_B),
-            target_is_real= True
-        )  # ====================>
+            self.D.apply({"params": params_D_A}, fake_B), target_is_real=True
+        )
         # GAN loss D_B(G_B(B))
         loss_G_B = self.criterion_gan(
-            self.D.apply({"params": params_D_B}, fake_A),
-            target_is_real=True
+            self.D.apply({"params": params_D_B}, fake_A), target_is_real=True
         )
 
         # Cycle loss ||G_B(G_A(A)) - A||
@@ -104,23 +99,23 @@ class CycleGan:
         loss_cycle_B = self.criterion_cycle(recover_B, real_B) * self.lambda_B
 
         # G_A should be identity if real_B is fed: ||G_A(B) - B||
-        id_A = self.G.apply({"params": params_G_A}, real_B)
+        rngs = {"dropout": jax.random.PRNGKey(1337)}
+        id_A = self.G.apply({"params": params_G_A}, real_B, rngs=rngs)
         loss_id_A = self.criterion_id(id_A, real_B) * self.lambda_B * self.lambda_id
         # G_B should be identity if real_A is fed: ||G_B(A) - A||
-        id_B = self.G.apply({"params": params_G_B}, real_A)
+        id_B = self.G.apply({"params": params_G_B}, real_A, rngs=rngs)
         loss_id_B = self.criterion_id(id_B, real_A) * self.lambda_A * self.lambda_id
 
         return loss_G_A + loss_G_B + loss_cycle_A + loss_cycle_B + loss_id_A + loss_id_B
 
     def train_discriminator_backward(self, params, real, fake):
         # Real
-        pred_real = self.D.apply({"params", params}, real)
+        pred_real = self.D.apply({"params": params}, real)
         loss_D_real = self.criterion_gan(pred_real, True)
         # Fake
         # TODO: CHANGE THIS DETACH
         # @source: https://github.com/google/jax/issues/2025
         # Idk what this means, should look more into this
-        # pred_fake = netD(fake.detach())
         pred_fake = self.D.apply({"params": params}, jax.lax.stop_gradient(fake))
         loss_D_fake = self.criterion_gan(pred_fake, False)
 
@@ -165,8 +160,7 @@ def create_discriminator_state(
     )
 
 
-# @partial(jax.jit, static_argnums=0)
-@jax.jit
+@partial(jax.jit, static_argnums=0)
 def generator_step(
     model: CycleGan,
     g_state: TrainState,
@@ -180,13 +174,11 @@ def generator_step(
     """
 
     def loss_fn(params):  # param: g_state.params
-        generated_data = model.train_generator_forward(
-            params, real_data
-        )  # ======================> fake, rec
+        generated_data = model.train_generator_forward(params, real_data)
         backward_params = (params[0], params[1], d_A_state.params, d_B_state.params)
         loss = model.train_generator_backward(
             backward_params, generated_data, real_data
-        )  # =========================>
+        )
         return loss, generated_data
 
     grad_fn = jax.value_and_grad(
@@ -198,8 +190,7 @@ def generator_step(
     return loss, new_g_state, generated_data
 
 
-# @partial(jax.jit, static_argnums=0)
-@jax.jit
+@partial(jax.jit, static_argnums=0)
 def discriminator_step(
     model: CycleGan,
     d_A_state: TrainState,
@@ -213,7 +204,7 @@ def discriminator_step(
 
     # Step for D_A
     def loss_fn_A(params):
-        loss = model.train_discriminator_backward(params, real_data, fake_data)
+        loss = model.train_discriminator_backward(params, real_data[0], fake_data[0])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_A)
@@ -222,7 +213,7 @@ def discriminator_step(
 
     # Step for D_B
     def loss_fn_B(params):
-        loss = model.train_discriminator_backward(params, real_data, fake_data)
+        loss = model.train_discriminator_backward(params, real_data[1], fake_data[1])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_B)

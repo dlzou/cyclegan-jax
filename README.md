@@ -38,9 +38,7 @@ pip install --upgrade "jax[cpu]"
 Finally:
 
 ```sh
-pip install flax
-pip install torch torchvision
-pip install jupyter
+pip install flax torch torchvision jupyter tqdm
 ```
 
 ## Downloading Data
