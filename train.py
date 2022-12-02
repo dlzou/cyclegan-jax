@@ -27,14 +27,14 @@ from gan import (
     generator_validation,
     discriminator_step,
 )
-import data as dataset
+import dataset
 import image_pool
 from img_utils import array_to_img
 
 
-def train(model_opts, dataset_opts, plt_img=False):
-    logger.info("Cleaning output_img/ directory ...")
-    os.system("rm -f output_img/*")
+def train(model_opts, dataset_opts, save_img=True, plt_img=False):
+    logger.info("Cleaning train_img/ directory ...")
+    os.system("rm -f train_img/*")
     logger.info(f"Training with configuration: {model_opts}")
 
     model_opts = SimpleNamespace(**model_opts)
@@ -143,6 +143,20 @@ def train(model_opts, dataset_opts, plt_img=False):
             g_val_losses.append(g_val_loss)
 
         fake_B, _, fake_A, _ = generated_data
+        logger.info("Outputting the generated image from validation...")
+
+        # Write latest generated images from validation set to disk
+        if save_img:
+            A_label = data["A_paths"]
+            B_label = data["B_paths"]
+            for i in np.arange(fake_A.shape[0]):
+                array_to_img(fake_A[i], f"val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg")
+            for i in np.arange(fake_B.shape[0]):
+                array_to_img(fake_B[i], f"val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg")
+
+            avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
+            logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
+            epoch_g_val_losses.append(avg_g_val_loss)
 
         # Plot latest generated images from validation set in Jupyter notebook
         if plt_img:
@@ -152,28 +166,15 @@ def train(model_opts, dataset_opts, plt_img=False):
             ax[0, 1] = ax.imshow(fake_A[0]) 
             ax[0, 1].title.set_text(f"Epoch {epoch} B to A")
     
-        logger.info("Outputting the generated image from validation...")
-        # Write latest generated images from validation set to disk
-        A_label = data["A_paths"]
-        B_label = data["B_paths"]
-        for i in np.arange(fake_A.shape[0]):
-            array_to_img(fake_A[i], f"{epoch}_fake_A_{A_label[i].split('/')[-1][:-4]}.jpg")
-        for i in np.arange(fake_B.shape[0]):
-            array_to_img(fake_B[i], f"{epoch}_fake_B_{B_label[i].split('/')[-1][:-4]}.jpg")
-
-        avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
-        logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
-        epoch_g_val_losses.append(avg_g_val_loss)
-
         # Checkpoint the state 
         # @source: https://github.com/google/flax/discussions/1876
         logger.info("Saving checkpoint...")
         g_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_G, target=g_state, step=epoch, overwrite=True)
         logger.info(f"G state checkpoint saved at {g_state_checkpoint}")
         d_A_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_A, target=d_A_state, step=epoch, overwrite=True)
-        logger.info(f"G state checkpoint saved at {d_A_state_checkpoint}")
+        logger.info(f"D_A state checkpoint saved at {d_A_state_checkpoint}")
         d_B_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_B, target=d_B_state, step=epoch, overwrite=True)
-        logger.info(f"G state checkpoint saved at {d_B_state_checkpoint}")
+        logger.info(f"D_B state checkpoint saved at {d_B_state_checkpoint}")
  
     return (
         epoch_g_train_losses,
@@ -222,9 +223,8 @@ dataset_opts = {
     "load_size": 286,
     "crop_size": 256,
     "dataroot": "./horse2zebra",
-    "phase": "train",
     "direction": "AtoB",
     "input_nc": 3,
     "output_nc": 3,
-    "serial_batches": True,
+    "serial_batches": False,
 }

@@ -11,9 +11,10 @@ from abc import ABC, abstractmethod
 
 
 class BaseDataset(data.Dataset, ABC):
-    def __init__(self, opt):
+    def __init__(self, opt, phase):
         self.opt = opt
         self.root = opt.dataroot
+        self.phase = phase
 
     @staticmethod
     def modify_commandline_options(parser, is_train):

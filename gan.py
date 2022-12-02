@@ -69,16 +69,46 @@ class CycleGan:
             {"params": params_G_A}, real_A, train=train, rngs=rngs
         )  # G_A(A)
         recover_A = self.G.apply(
-            {"params": params_G_B}, fake_B, train=True, rngs=rngs
+            {"params": params_G_B}, fake_B, train=train, rngs=rngs
         )  # G_B(G_A(A))
         fake_A = self.G.apply(
             {"params": params_G_B}, real_B, train=train, rngs=rngs
         )  # G_B(B)
         recover_B = self.G.apply(
-            {"params": params_G_A}, fake_A, train=True, rngs=rngs
+            {"params": params_G_A}, fake_A, train=train, rngs=rngs
         )  # G_A(G_B(B))
 
         return (fake_B, recover_A, fake_A, recover_B)
+    
+    def run_single_generator_forward(self, rngs, params, real_data, direction="A"):
+        """
+        Args:
+            params: (params_G_A, params_G_B)
+            real_data: (real_A, real_B)
+        """
+        params_G_A = params[0]
+        params_G_B = params[1]
+
+        # Forward through G
+        if direction == "A":
+            fake = self.G.apply(
+                {"params": params_G_A}, real_data, train=False, rngs=rngs
+            )  # G_A(A)
+            recover = self.G.apply(
+                {"params": params_G_B}, fake, train=False, rngs=rngs
+            )  # G_B(G_A(A))
+        elif direction =="B":
+            fake = self.G.apply(
+                {"params": params_G_B}, real_data, train=False, rngs=rngs
+            )  # G_A(A)
+            recover = self.G.apply(
+                {"params": params_G_A}, fake, train=False, rngs=rngs
+            )  # G_B(G_A(A))
+        else:
+            raise ValueError("direction must be A or B")
+
+        return (fake, recover)
+
 
     def run_generator_backward(
         self, rngs, params, generated_data, real_data, train=True
@@ -275,3 +305,19 @@ def discriminator_step(
     new_d_B_state = d_B_state.apply_gradients(grads=grads)
 
     return loss_A, loss_B, new_d_A_state, new_d_B_state
+
+
+@partial(jax.jit, static_argnums=[1, 4])
+def generator_prediction(
+    key: jnp.ndarray,
+    model: CycleGan,
+    g_state: TrainState,
+    real_data: jnp.ndarray,
+    direction: str,
+):
+    key, dropout_key = jax.random.split(key)
+
+    generated_data = model.run_single_generator_forward(
+        {"dropout": dropout_key}, g_state.params, real_data, direction=direction
+    )
+    return key, generated_data
