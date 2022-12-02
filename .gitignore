@@ -4,3 +4,5 @@ horse2zebra
 **/.DS_Store
 __pycache__/
 *.log
+model_checkpoints/
+output_img/

@@ -1,8 +1,6 @@
 import argparse
-import config
-import data
 import train
-from logger import logger
+import logger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="CycleGAN", description="CycleGAN")
@@ -19,6 +17,7 @@ if __name__ == "__main__":
         print("Predicting file: {}".format(arg.predict))
 
     elif arg.playground: 
+        logger.info("test")
         pass
 
     else:

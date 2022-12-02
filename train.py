@@ -16,7 +16,7 @@ import jax.numpy as jnp
 import jax
 import matplotlib.pyplot as plt
 import numpy as np
-from logger import logger
+import logger
 import torch
 
 from gan import (
@@ -29,10 +29,12 @@ from gan import (
 )
 import data as dataset
 import image_pool
-from PIL import Image as im
+from img_utils import array_to_img
 
 
 def train(model_opts, dataset_opts, plt_img=False):
+    logger.info("Cleaning output_img/ directory ...")
+    os.system("rm -f output_img/*")
     logger.info(f"Training with configuration: {model_opts}")
 
     model_opts = SimpleNamespace(**model_opts)
@@ -42,7 +44,7 @@ def train(model_opts, dataset_opts, plt_img=False):
     # Initialize States
     key = jax.random.PRNGKey(1337)
 
-    logger.info("Creating cyclegan states and initializing the image pool...")
+    logger.info("Creating CycleGAN states and initializing the image pool...")
     key, g_state = create_generator_state(
         key,
         model,
@@ -75,7 +77,8 @@ def train(model_opts, dataset_opts, plt_img=False):
 
     epoch_g_val_losses = []
 
-    for epoch in range(model_opts.epochs):
+    # for epoch in range(model_opts.epochs):
+    for epoch in range(100):
         logger.info(f"\n========START OF EPOCH {epoch}========")
 
         # Training stage
@@ -84,11 +87,9 @@ def train(model_opts, dataset_opts, plt_img=False):
         d_b_train_losses = []
         for j, data in tqdm(enumerate(training_data)):
             real_A = data["A"]
-            real_B = data["B"]
             real_A = torch.permute(real_A, (0, 2, 3, 1)).numpy()
+            real_B = data["B"]
             real_B = torch.permute(real_B, (0, 2, 3, 1)).numpy()
-
-            real_A, real_B = jnp.array(real_A), jnp.array(real_B)
 
             # G step
             key, loss, g_state, generated_data = generator_step(
@@ -112,9 +113,9 @@ def train(model_opts, dataset_opts, plt_img=False):
             d_a_train_losses.append(loss_A)
             d_b_train_losses.append(loss_B)
 
-        avg_g_train_loss = jnp.mean(g_train_losses)
-        avg_d_a_train_loss = jnp.mean(d_a_train_losses)
-        avg_d_b_train_loss = jnp.mean(d_b_train_losses)
+        avg_g_train_loss = jnp.mean(jnp.array(g_train_losses))
+        avg_d_a_train_loss = jnp.mean(jnp.array(d_a_train_losses))
+        avg_d_b_train_loss = jnp.mean(jnp.array(d_b_train_losses))
         epoch_g_train_losses.append(avg_g_train_loss)
         epoch_d_a_train_losses.append(avg_d_a_train_loss)
         epoch_d_b_train_losses.append(avg_d_b_train_loss)
@@ -126,7 +127,6 @@ def train(model_opts, dataset_opts, plt_img=False):
         # Validation stage
         g_val_losses = []
         # TODO: create validation_data set
-        validation_data = []  # Remove later
         for j, data in tqdm(enumerate(validation_data)):
             real_A = data["A"]
             real_B = data["B"]
@@ -152,33 +152,27 @@ def train(model_opts, dataset_opts, plt_img=False):
             ax[0, 1] = ax.imshow(fake_A[0]) 
             ax[0, 1].title.set_text(f"Epoch {epoch} B to A")
     
-        logger.info("Outputing the generated image from validation...")
+        logger.info("Outputting the generated image from validation...")
         # Write latest generated images from validation set to disk
-        fake_B_np, fake_A_np = fake_B.numpy(), fake_A.numpy()
-        fake_B_np, fake_A_np = np.transpose(fake_B_np, (0, 3, 1, 2)), np.transpose(fake_A_np, (0, 3, 1, 2))
         A_label = data["A_paths"]
         B_label = data["B_paths"]
-        for idx in np.arange(len(fake_B_np)):
-            data = im.fromarray(fake_B_np[idx])
-            data.save(f"{epoch}_fake_B_{A_label[idx]}.png")
+        for i in np.arange(fake_A.shape[0]):
+            array_to_img(fake_A[i], f"{epoch}_fake_A_{A_label[i].split('/')[-1][:-4]}.jpg")
+        for i in np.arange(fake_B.shape[0]):
+            array_to_img(fake_B[i], f"{epoch}_fake_B_{B_label[i].split('/')[-1][:-4]}.jpg")
 
-        for idx in np.arange(len(fake_A_np)):
-            data = im.fromarray(fake_A_np[idx])
-            data.save(f"{epoch}_fake_A_{B_label[idx]}.png")
-            
-        avg_g_val_loss = jnp.mean(g_val_losses)
+        avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
         logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
         epoch_g_val_losses.append(avg_g_val_loss)
-
 
         # Checkpoint the state 
         # @source: https://github.com/google/flax/discussions/1876
         logger.info("Saving checkpoint...")
-        g_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=g_state, step=epoch)
+        g_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_G, target=g_state, step=epoch, overwrite=True)
         logger.info(f"G state checkpoint saved at {g_state_checkpoint}")
-        d_A_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=d_A_state, step=epoch)
+        d_A_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_A, target=d_A_state, step=epoch, overwrite=True)
         logger.info(f"G state checkpoint saved at {d_A_state_checkpoint}")
-        d_B_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=d_B_state, step=epoch)
+        d_B_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_B, target=d_B_state, step=epoch, overwrite=True)
         logger.info(f"G state checkpoint saved at {d_B_state_checkpoint}")
  
     return (
@@ -187,6 +181,7 @@ def train(model_opts, dataset_opts, plt_img=False):
         epoch_d_b_train_losses,
         epoch_g_val_losses,
     )
+
 
 model_opts = {
     "input_shape": [1, 256, 256, 3],
@@ -210,7 +205,9 @@ model_opts = {
     "lambda_A": 10.0,
     "lambda_B": 10.0,
     "lambda_id": 0.5,
-    "checkpoint_directory": "model_checkpoints"
+    "checkpoint_directory_G": "model_checkpoints/checkpoint_G", 
+    "checkpoint_directory_D_A": "model_checkpoints/checkpoint_D_A", 
+    "checkpoint_directory_D_B": "model_checkpoints/checkpoint_D_B", 
 }
 
 dataset_opts = {
@@ -231,5 +228,3 @@ dataset_opts = {
     "output_nc": 3,
     "serial_batches": True,
 }
-
-# train.train(temp_opts)
