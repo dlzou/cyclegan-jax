@@ -7,15 +7,16 @@ References:
     https://github.com/google/flax/blob/main/examples/mnist/train.py
 """
 
-import itertools
+import os
 
-from flax.training.train_state import TrainState
-import numpy as np
+from flax.training import checkpoints
+from types import SimpleNamespace
+from tqdm import tqdm
 import jax.numpy as jnp
 import jax
-import optax
-import pprint
-from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
+from logger import logger
 import torch
 
 from gan import (
@@ -28,20 +29,20 @@ from gan import (
 )
 import data as dataset
 import image_pool
+from PIL import Image as im
 
-from types import SimpleNamespace
 
-
-def train(model_opts, dataset_opts, show_img=True):
-    print("Training with configuration: ")
-    pprint.pprint(model_opts)
+def train(model_opts, dataset_opts, plt_img=False):
+    logger.info(f"Training with configuration: {model_opts}")
 
     model_opts = SimpleNamespace(**model_opts)
     model = CycleGan(model_opts)
-    training_data = dataset.create_dataset(dataset_opts)
+    training_data, validation_data = dataset.create_dataset(dataset_opts)
 
     # Initialize States
     key = jax.random.PRNGKey(1337)
+
+    logger.info("Creating cyclegan states and initializing the image pool...")
     key, g_state = create_generator_state(
         key,
         model,
@@ -74,8 +75,8 @@ def train(model_opts, dataset_opts, show_img=True):
 
     epoch_g_val_losses = []
 
-    for i in range(model_opts.epochs):
-        print(f"\n========START OF EPOCH {i}========")
+    for epoch in range(model_opts.epochs):
+        logger.info(f"\n========START OF EPOCH {epoch}========")
 
         # Training stage
         g_train_losses = []
@@ -111,18 +112,17 @@ def train(model_opts, dataset_opts, show_img=True):
             d_a_train_losses.append(loss_A)
             d_b_train_losses.append(loss_B)
 
-            # TODO: Fill in tuples for real and fake data
-
         avg_g_train_loss = jnp.mean(g_train_losses)
         avg_d_a_train_loss = jnp.mean(d_a_train_losses)
         avg_d_b_train_loss = jnp.mean(d_b_train_losses)
-        print(f"Epoch {i} avg G training loss: {avg_g_train_loss}")
-        print(f"Epoch {i} avg D_A training loss: {avg_d_a_train_loss}")
-        print(f"Epoch {i} avg D_B training loss: {avg_d_b_train_loss}")
         epoch_g_train_losses.append(avg_g_train_loss)
         epoch_d_a_train_losses.append(avg_d_a_train_loss)
         epoch_d_b_train_losses.append(avg_d_b_train_loss)
+        logger.info(f"Epoch {epoch} avg G training loss: {avg_g_train_loss}")
+        logger.info(f"Epoch {epoch} avg D_A training loss: {avg_d_a_train_loss}")
+        logger.info(f"Epoch {epoch} avg D_B training loss: {avg_d_b_train_loss}")
 
+        logger.info("Running validation...")
         # Validation stage
         g_val_losses = []
         # TODO: create validation_data set
@@ -142,16 +142,51 @@ def train(model_opts, dataset_opts, show_img=True):
             )
             g_val_losses.append(g_val_loss)
 
+        fake_B, _, fake_A, _ = generated_data
+
+        # Plot latest generated images from validation set in Jupyter notebook
+        if plt_img:
+            fig, ax = plt.subplots(1, 2)
+            ax[0, 0] = ax.imshow(fake_B[0])
+            ax[0, 0].title.set_text(f"Epoch {epoch} A to B")
+            ax[0, 1] = ax.imshow(fake_A[0]) 
+            ax[0, 1].title.set_text(f"Epoch {epoch} B to A")
+    
+        logger.info("Outputing the generated image from validation...")
+        # Write latest generated images from validation set to disk
+        fake_B_np, fake_A_np = fake_B.numpy(), fake_A.numpy()
+        fake_B_np, fake_A_np = np.transpose(fake_B_np, (0, 3, 1, 2)), np.transpose(fake_A_np, (0, 3, 1, 2))
+        A_label = data["A_paths"]
+        B_label = data["B_paths"]
+        for idx in np.arange(len(fake_B_np)):
+            data = im.fromarray(fake_B_np[idx])
+            data.save(f"{epoch}_fake_B_{A_label[idx]}.png")
+
+        for idx in np.arange(len(fake_A_np)):
+            data = im.fromarray(fake_A_np[idx])
+            data.save(f"{epoch}_fake_A_{B_label[idx]}.png")
+            
         avg_g_val_loss = jnp.mean(g_val_losses)
-        print(f"Epoch {i} avg G validation loss: {avg_g_val_loss}")
+        logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
         epoch_g_val_losses.append(avg_g_val_loss)
 
-        # Display latest generated images from validation set
-        # TODO
 
-    # Plot training and validation losses
-    # TODO
-
+        # Checkpoint the state 
+        # @source: https://github.com/google/flax/discussions/1876
+        logger.info("Saving checkpoint...")
+        g_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=g_state, step=epoch)
+        logger.info(f"G state checkpoint saved at {g_state_checkpoint}")
+        d_A_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=d_A_state, step=epoch)
+        logger.info(f"G state checkpoint saved at {d_A_state_checkpoint}")
+        d_B_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory, target=d_B_state, step=epoch)
+        logger.info(f"G state checkpoint saved at {d_B_state_checkpoint}")
+ 
+    return (
+        epoch_g_train_losses,
+        epoch_d_a_train_losses,
+        epoch_d_b_train_losses,
+        epoch_g_val_losses,
+    )
 
 model_opts = {
     "input_shape": [1, 256, 256, 3],
@@ -175,6 +210,7 @@ model_opts = {
     "lambda_A": 10.0,
     "lambda_B": 10.0,
     "lambda_id": 0.5,
+    "checkpoint_directory": "model_checkpoints"
 }
 
 dataset_opts = {
@@ -184,6 +220,7 @@ dataset_opts = {
     "no_flip": True,
     "display_winsize": 256,
     "num_threads": 4,
+    "train_set_ratio": 0.85,
     "batch_size": 1,
     "load_size": 286,
     "crop_size": 256,
