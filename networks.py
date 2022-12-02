@@ -8,6 +8,7 @@ References:
     https://hardikbansal.github.io/CycleGANBlog/
 """
 
+from functools import partial
 from typing import Callable
 
 import numpy as np
@@ -31,37 +32,11 @@ class Generator(nn.Module):
     output_nc: int = 3
     ngf: int = 32
     n_res_blocks: int = 6
-    use_dropout: bool = True
+    dropout_rate: float = 0.5
     initializer: Callable = jax.nn.initializers.normal(stddev=0.02)
 
-    # def __init__(
-    #     self,
-    #     output_nc,
-    #     ngf=32,
-    #     n_res_blocks=6,
-    #     use_dropout=True,
-    #     initializer=jax.nn.initializers.normal(stddev=0.02),
-    # ):
-    #     """
-    #     Args:
-    #         output_nc (int)     -- the number of channels in output images
-    #         ngf (int)           -- the number of filters in the last conv layer
-    #         n_res_blocks (int)  -- the number of ResNet blocks
-    #         use_dropout (bool)  -- if use dropout layers
-    #         initializer (fn)    -- function for initializing parameters
-    #     """
-    #     super(Generator, self).__init__()
-    #     self.output_nc = output_nc
-    #     self.ngf = ngf
-    #     self.n_res_blocks = n_res_blocks
-    #     self.use_dropout = use_dropout
-    #     self.initializer = initializer
-
-    # def __post_init__(self):
-    #     super().__post_init__() # <-- forgot to add this line
-
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x, train):
         input_x = x
         # First convolution layer.
         first_conv = nn.Sequential(
@@ -105,7 +80,9 @@ class Generator(nn.Module):
             model += [
                 ResnetBlock(
                     features=self.ngf * mult,
-                    use_dropout=self.use_dropout,
+                    dropout_layer=partial(
+                        nn.Dropout, rate=self.dropout_rate, deterministic=not train
+                    ),
                     initializer=self.initializer,
                 )
             ]
@@ -151,15 +128,8 @@ class Generator(nn.Module):
 class ResnetBlock(nn.Module):
 
     features: int
-    use_dropout: bool = True
+    dropout_layer: Callable
     initializer: Callable = jax.nn.initializers.normal(stddev=0.02)
-
-    # def __init__(
-    #     self, features, use_dropout, initializer=jax.nn.initializers.normal(stddev=0.02)
-    # ):
-    #     self.features = features
-    #     self.use_dropout = use_dropout
-    #     self.initializer = initializer
 
     @nn.compact
     def __call__(self, x):
@@ -172,10 +142,7 @@ class ResnetBlock(nn.Module):
             ),
             nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
             nn.relu,
-        ]
-        if self.use_dropout:
-            model += [nn.Dropout(0.5, deterministic=False)]
-        model += [
+            self.dropout_layer(),
             nn.Conv(
                 features=self.features,
                 kernel_size=[3, 3],
@@ -206,29 +173,6 @@ class Discriminator(nn.Module):
     netD: str = "n_layers"
     n_layers: int = 3
     initializer: Callable = jax.nn.initializers.normal(stddev=0.02)
-
-    # def __init__(
-    #     self,
-    #     ndf,
-    #     netD="n_layers",
-    #     n_layers=3,
-    #     initializer=jax.nn.initializers.normal(stddev=0.02),
-    # ):
-    #     """Initialize a Discriminator instance.
-
-    #     Parameters:
-    #         ndf (int)          -- the number of filters in the first conv layer
-    #         netD (str)         -- the architecture's name: basic | n_layers | pixel
-    #         n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
-    #         init_type (str)    -- the name of the initialization method.
-    #         init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-    #         gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
-    #     """
-
-    #     self.ndf = ndf
-    #     self.netD = netD
-    #     self.n_layers = n_layers
-    #     self.initializer = initializer
 
     def setup(self):
         net = None

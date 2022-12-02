@@ -27,7 +27,7 @@ class CycleGan:
             output_nc=opts.output_nc,
             ngf=opts.ngf,
             n_res_blocks=opts.n_res_blocks,
-            use_dropout=opts.use_dropout,
+            dropout_rate=opts.dropout_rate,
             initializer=opts.initializer,
         )
         self.D = Discriminator(ndf=opts.ndf)
@@ -44,15 +44,15 @@ class CycleGan:
         """
         Reference: https://github.com/google/jax/issues/421
         """
-        params_G_A = self.G.init(rngs, jnp.ones(input_shape))["params"]
-        params_G_B = self.G.init(rngs, jnp.ones(input_shape))["params"]
+        params_G_A = self.G.init(rngs, jnp.ones(input_shape), train=False)["params"]
+        params_G_B = self.G.init(rngs, jnp.ones(input_shape), train=False)["params"]
         return (params_G_A, params_G_B)
 
     def get_discriminator_params(self, rngs, input_shape):
         params_D = self.D.init(rngs, jnp.ones(input_shape))["params"]
         return params_D
 
-    def train_generator_forward(self, rngs, params, real_data):
+    def run_generator_forward(self, rngs, params, real_data, train=True):
         """
         Args:
             params: (params_G_A, params_G_B)
@@ -65,18 +65,24 @@ class CycleGan:
         real_B = real_data[1]
 
         # Forward through G
-        fake_B = self.G.apply({"params": params_G_A}, real_A, rngs=rngs)  # G_A(A)
+        fake_B = self.G.apply(
+            {"params": params_G_A}, real_A, train=train, rngs=rngs
+        )  # G_A(A)
         recover_A = self.G.apply(
-            {"params": params_G_B}, fake_B, rngs=rngs
+            {"params": params_G_B}, fake_B, train=True, rngs=rngs
         )  # G_B(G_A(A))
-        fake_A = self.G.apply({"params": params_G_B}, real_B, rngs=rngs)  # G_B(B)
+        fake_A = self.G.apply(
+            {"params": params_G_B}, real_B, train=train, rngs=rngs
+        )  # G_B(B)
         recover_B = self.G.apply(
-            {"params": params_G_A}, fake_A, rngs=rngs
+            {"params": params_G_A}, fake_A, train=True, rngs=rngs
         )  # G_A(G_B(B))
 
         return (fake_B, recover_A, fake_A, recover_B)
 
-    def train_generator_backward(self, rngs, params, generated_data, real_data):
+    def run_generator_backward(
+        self, rngs, params, generated_data, real_data, train=True
+    ):
         params_G_A = params[0]
         params_G_B = params[1]
         params_D_A = params[2]
@@ -107,15 +113,15 @@ class CycleGan:
         loss_cycle_B = self.criterion_cycle(recover_B, real_B) * self.lambda_B
 
         # G_A should be identity if real_B is fed: ||G_A(B) - B||
-        id_A = self.G.apply({"params": params_G_A}, real_B, rngs=rngs)
+        id_A = self.G.apply({"params": params_G_A}, real_B, train=train, rngs=rngs)
         loss_id_A = self.criterion_id(id_A, real_B) * self.lambda_B * self.lambda_id
         # G_B should be identity if real_A is fed: ||G_B(A) - A||
-        id_B = self.G.apply({"params": params_G_B}, real_A, rngs=rngs)
+        id_B = self.G.apply({"params": params_G_B}, real_A, train=train, rngs=rngs)
         loss_id_B = self.criterion_id(id_B, real_A) * self.lambda_A * self.lambda_id
 
         return loss_G_A + loss_G_B + loss_cycle_A + loss_cycle_B + loss_id_A + loss_id_B
 
-    def train_discriminator_backward(self, params, real, fake):
+    def run_discriminator_backward(self, params, real, fake):
         # Real
         pred_real = self.D.apply({"params": params}, real)
         loss_D_real = self.criterion_gan(pred_real, True)
@@ -186,12 +192,16 @@ def generator_step(
     key, dropout_key = jax.random.split(key)
 
     def loss_fn(params):  # param: g_state.params
-        generated_data = model.train_generator_forward(
-            {"dropout": dropout_key}, params, real_data
+        generated_data = model.run_generator_forward(
+            {"dropout": dropout_key}, params, real_data, train=True
         )
         backward_params = (params[0], params[1], d_A_state.params, d_B_state.params)
-        loss = model.train_generator_backward(
-            {"dropout": dropout_key}, backward_params, generated_data, real_data
+        loss = model.run_generator_backward(
+            {"dropout": dropout_key},
+            backward_params,
+            generated_data,
+            real_data,
+            train=True,
         )
         return loss, generated_data
 
@@ -202,6 +212,36 @@ def generator_step(
     new_g_state = g_state.apply_gradients(grads=grads)
     # what about metrics?
     return key, loss, new_g_state, generated_data
+
+
+@partial(jax.jit, static_argnums=1)
+def generator_validation(
+    key: jnp.ndarray,
+    model: CycleGan,
+    g_state: TrainState,
+    d_A_state: TrainState,
+    d_B_state: TrainState,
+    real_data: Tuple[jnp.ndarray, jnp.ndarray],
+):
+    key, dropout_key = jax.random.split(key)
+
+    generated_data = model.run_generator_forward(
+        {"dropout": dropout_key}, g_state.params, real_data, train=False
+    )
+    backward_params = (
+        g_state.params[0],
+        g_state.params[1],
+        d_A_state.params,
+        d_B_state.params,
+    )
+    loss = model.run_generator_backward(
+        {"dropout": dropout_key},
+        backward_params,
+        generated_data,
+        real_data,
+        train=False,
+    )
+    return key, loss, generated_data
 
 
 @partial(jax.jit, static_argnums=0)
@@ -218,7 +258,7 @@ def discriminator_step(
 
     # Step for D_A
     def loss_fn_A(params):
-        loss = model.train_discriminator_backward(params, real_data[0], fake_data[0])
+        loss = model.run_discriminator_backward(params, real_data[0], fake_data[0])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_A)
@@ -227,7 +267,7 @@ def discriminator_step(
 
     # Step for D_B
     def loss_fn_B(params):
-        loss = model.train_discriminator_backward(params, real_data[1], fake_data[1])
+        loss = model.run_discriminator_backward(params, real_data[1], fake_data[1])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_B)

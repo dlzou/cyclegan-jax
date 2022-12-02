@@ -23,6 +23,7 @@ from gan import (
     create_generator_state,
     create_discriminator_state,
     generator_step,
+    generator_validation,
     discriminator_step,
 )
 import data as dataset
@@ -31,7 +32,7 @@ import image_pool
 from types import SimpleNamespace
 
 
-def train(model_opts, dataset_opts):
+def train(model_opts, dataset_opts, show_img=True):
     print("Training with configuration: ")
     pprint.pprint(model_opts)
 
@@ -67,14 +68,19 @@ def train(model_opts, dataset_opts):
     pool_A = image_pool.ImagePool(model_opts.pool_size)
     pool_B = image_pool.ImagePool(model_opts.pool_size)
 
-    epoch_g_losses = []
-    epoch_d_a_losses = []
-    epoch_d_b_losses = []
+    epoch_g_train_losses = []
+    epoch_d_a_train_losses = []
+    epoch_d_b_train_losses = []
+
+    epoch_g_val_losses = []
+
     for i in range(model_opts.epochs):
-        g_losses = []
-        d_a_losses = []
-        d_b_losses = []
         print(f"\n========START OF EPOCH {i}========")
+
+        # Training stage
+        g_train_losses = []
+        d_a_train_losses = []
+        d_b_train_losses = []
         for j, data in tqdm(enumerate(training_data)):
             real_A = data["A"]
             real_B = data["B"]
@@ -82,13 +88,13 @@ def train(model_opts, dataset_opts):
             real_B = torch.permute(real_B, (0, 2, 3, 1)).numpy()
 
             real_A, real_B = jnp.array(real_A), jnp.array(real_B)
-            # breakpoint()
+
             # G step
             key, loss, g_state, generated_data = generator_step(
                 key, model, g_state, d_A_state, d_B_state, (real_A, real_B)
             )
             fake_B, _, fake_A, _ = generated_data
-            g_losses.append(loss)
+            g_train_losses.append(loss)
 
             # Pool
             fake_A = pool_A.query(fake_A)
@@ -102,22 +108,49 @@ def train(model_opts, dataset_opts):
                 (real_A, real_B),
                 (fake_A, fake_B),
             )
-            d_a_losses.append(loss_A)
-            d_b_losses.append(loss_B)
+            d_a_train_losses.append(loss_A)
+            d_b_train_losses.append(loss_B)
 
             # TODO: Fill in tuples for real and fake data
 
-        avg_g_loss = jnp.mean(g_losses)
-        avg_d_a_loss = jnp.mean(d_a_losses)
-        avg_d_b_loss = jnp.mean(d_b_losses)
-        print(f"Epoch {i} Avg G Loss: {avg_g_loss}")
-        print(f"Epoch {i} Avg D_A Loss: {avg_d_a_loss}")
-        print(f"Epoch {i} Avg D_B Loss: {avg_d_b_loss}")
-        epoch_g_losses.append(avg_g_loss)
-        epoch_d_a_losses.append(avg_d_a_loss)
-        epoch_d_b_losses.append(avg_d_b_loss)
+        avg_g_train_loss = jnp.mean(g_train_losses)
+        avg_d_a_train_loss = jnp.mean(d_a_train_losses)
+        avg_d_b_train_loss = jnp.mean(d_b_train_losses)
+        print(f"Epoch {i} avg G training loss: {avg_g_train_loss}")
+        print(f"Epoch {i} avg D_A training loss: {avg_d_a_train_loss}")
+        print(f"Epoch {i} avg D_B training loss: {avg_d_b_train_loss}")
+        epoch_g_train_losses.append(avg_g_train_loss)
+        epoch_d_a_train_losses.append(avg_d_a_train_loss)
+        epoch_d_b_train_losses.append(avg_d_b_train_loss)
 
-    # TODO: Plot losses, visualize generated images
+        # Validation stage
+        g_val_losses = []
+        # TODO: create validation_data set
+        validation_data = []  # Remove later
+        for j, data in tqdm(enumerate(validation_data)):
+            real_A = data["A"]
+            real_B = data["B"]
+            real_A = torch.permute(real_A, (0, 2, 3, 1)).numpy()
+            real_B = torch.permute(real_B, (0, 2, 3, 1)).numpy()
+            key, g_val_loss, generated_data = generator_validation(
+                key,
+                model,
+                g_state,
+                d_A_state,
+                d_B_state,
+                (real_A, real_B),
+            )
+            g_val_losses.append(g_val_loss)
+
+        avg_g_val_loss = jnp.mean(g_val_losses)
+        print(f"Epoch {i} avg G validation loss: {avg_g_val_loss}")
+        epoch_g_val_losses.append(avg_g_val_loss)
+
+        # Display latest generated images from validation set
+        # TODO
+
+    # Plot training and validation losses
+    # TODO
 
 
 model_opts = {
@@ -125,7 +158,7 @@ model_opts = {
     "output_nc": 3,
     "ngf": 32,
     "n_res_blocks": 6,
-    "use_dropout": True,
+    "dropout_rate": 0.5,
     "ndf": 64,
     "netD": "n_layers",
     "n_layers": 3,
