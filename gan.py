@@ -30,7 +30,10 @@ class CycleGan:
             dropout_rate=opts.dropout_rate,
             initializer=opts.initializer,
         )
-        self.D = Discriminator(ndf=opts.ndf)
+        self.D = Discriminator(
+            ndf=opts.ndf,
+
+        )
         self.criterion_gan = GanLoss(gan_mode="lsgan")
         self.criterion_cycle = L1Loss()
         self.criterion_id = L1Loss()
@@ -288,7 +291,7 @@ def discriminator_step(
 
     # Step for D_A
     def loss_fn_A(params):
-        loss = model.run_discriminator_backward(params, real_data[0], fake_data[0])
+        loss = model.run_discriminator_backward(params, real_data[1], fake_data[1])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_A)
@@ -297,7 +300,7 @@ def discriminator_step(
 
     # Step for D_B
     def loss_fn_B(params):
-        loss = model.run_discriminator_backward(params, real_data[1], fake_data[1])
+        loss = model.run_discriminator_backward(params, real_data[0], fake_data[0])
         return loss
 
     grad_fn = jax.value_and_grad(loss_fn_B)
