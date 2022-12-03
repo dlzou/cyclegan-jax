@@ -5,8 +5,6 @@ import numpy as np
 from PIL import Image as im
 import tensorflow as tf
 
-# tf.keras.utils.array_to_img
-
 
 def array_to_img(x: jnp.ndarray, filename: str) -> None:
     xnp = np.array(x)
@@ -17,6 +15,7 @@ def img_to_array(filename: str) -> jnp.ndarray:
     img = im.open(os.path.join(os.getcwd(), filename))
     ret = tf.keras.preprocessing.image.img_to_array(img) / 128 - 1
     return jnp.array(ret)
+
 
 if __name__ == "__main__":
     array_to_img(

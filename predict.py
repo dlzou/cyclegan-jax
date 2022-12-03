@@ -34,25 +34,30 @@ def predict(model_opts, filename: str, save_img=True, plt_img=False):
         model_opts.learning_rate,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both G_A and G_B, and optimizer
-    g_state = checkpoints.restore_checkpoint(model_opts.checkpoint_directory_G, target=g_state)
-    
+    g_state = checkpoints.restore_checkpoint(
+        model_opts.checkpoint_directory_G, target=g_state
+    )
+
     key, generated_data = generator_prediction(
         key, model, g_state, real_data, direction
     )
-    
+
     fake, recover = generated_data
-    
+
     # Write latest generated images from validation set to disk
     result = "B" if direction == "A" else "A"
     if save_img:
-        array_to_img(fake[0], f"pred_img/fake_{result}_{filename.split('/')[-1][:-4]}.jpg")
-        array_to_img(recover[0], f"pred_img/fake_{direction}_{filename.split('/')[-1][:-4]}.jpg")
+        array_to_img(
+            fake[0], f"pred_img/fake_{result}_{filename.split('/')[-1][:-4]}.jpg"
+        )
+        array_to_img(
+            recover[0], f"pred_img/fake_{direction}_{filename.split('/')[-1][:-4]}.jpg"
+        )
 
     # Plot latest generated images from validation set in Jupyter notebook
     if plt_img:
         fig, ax = plt.subplots(1, 2)
         ax[0, 0] = ax.imshow(fake[0])
         ax[0, 0].title.set_text(f"Fake {result}")
-        ax[0, 1] = ax.imshow(recover[0]) 
+        ax[0, 1] = ax.imshow(recover[0])
         ax[0, 1].title.set_text(f"Recover {direction}")
-    

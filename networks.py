@@ -20,7 +20,9 @@ from flax import linen as nn
 
 
 class Generator(nn.Module):
-    """
+    """The generator is responsible for generating images that attempt to fool
+    the discriminator.
+
     Args:
         output_nc (int)     -- the number of channels in output images
         ngf (int)           -- the number of filters in the last conv layer
@@ -160,15 +162,14 @@ class Discriminator(nn.Module):
     """
     The discriminator would take an image input and predict if it's an original
     or the output from the generator.
-    """
 
-    """
     Parameters:
         ndf (int)          -- the number of filters in the first conv layer
         netD (str)         -- the architecture's name: basic | n_layers | pixel
         n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
         init_type (str)    -- the name of the initialization method.
     """
+
     ndf: int = 64  # TODO: What's this??
     netD: str = "n_layers"
     n_layers: int = 3

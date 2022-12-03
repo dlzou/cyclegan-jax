@@ -21,8 +21,14 @@ from networks import Discriminator, Generator, GanLoss, L1Loss
 
 
 class CycleGan:
+    """A collection of modules and logic for CycleGAN training and inference."""
+
     def __init__(self, opts):
-        # The following are stateless; state is passed in later through params.
+        """Initialize all modules.
+
+        Each module is essentially a stateless function. Parameter states are
+        passed in to forward and backward pass methods.
+        """
         self.G = Generator(
             output_nc=opts.output_nc,
             ngf=opts.ngf,
@@ -60,8 +66,10 @@ class CycleGan:
     def run_generator_forward(self, rngs, params, real_data, train=True):
         """
         Args:
+            rngs: {"dropout": ...}
             params: (params_G_A, params_G_B)
             real_data: (real_A, real_B)
+            train: toggle that affects dropout layer
         """
         params_G_A = params[0]
         params_G_B = params[1]
@@ -84,12 +92,14 @@ class CycleGan:
         )  # G_A(G_B(B))
 
         return (fake_B, recover_A, fake_A, recover_B)
-    
+
     def run_single_generator_forward(self, rngs, params, real_data, direction="A"):
         """
         Args:
+            rngs: {"dropout": ...}
             params: (params_G_A, params_G_B)
             real_data: (real_A, real_B)
+            direction: whether starting from set A or B
         """
         params_G_A = params[0]
         params_G_B = params[1]
@@ -102,7 +112,7 @@ class CycleGan:
             recover = self.G.apply(
                 {"params": params_G_B}, fake, train=False, rngs=rngs
             )  # G_B(G_A(A))
-        elif direction =="B":
+        elif direction == "B":
             fake = self.G.apply(
                 {"params": params_G_B}, real_data, train=False, rngs=rngs
             )  # G_A(A)
@@ -114,10 +124,16 @@ class CycleGan:
 
         return (fake, recover)
 
-
     def run_generator_backward(
         self, rngs, params, generated_data, real_data, train=True
     ):
+        """
+        Args:
+            rngs: {"dropout": ...}
+            params: (params_G_A, params_G_B, params_D_A, params_D_B)
+            generated_data: (fake_B, recover_A, fake_A, recover_B)
+            real_data: (real_A, real_B)
+        """
         params_G_A = params[0]
         params_G_B = params[1]
         params_D_A = params[2]
@@ -157,6 +173,12 @@ class CycleGan:
         return loss_G_A + loss_G_B + loss_cycle_A + loss_cycle_B + loss_id_A + loss_id_B
 
     def run_discriminator_backward(self, params, real, fake):
+        """
+        Args:
+            params: params for one discriminator
+            real: real image from dataset
+            fake: generated image from image pool
+        """
         # Real
         pred_real = self.D.apply({"params": params}, real)
         loss_D_real = self.criterion_gan(pred_real, True)
@@ -287,8 +309,8 @@ def discriminator_step(
     real_data: Tuple[jnp.ndarray, jnp.ndarray],
     fake_data: Tuple[jnp.ndarray, jnp.ndarray],
 ):
-    """The discriminator is updated by critiquing both real and generated data,
-    It's loss goes down as it predicts correctly if images are real or generated.
+    """The discriminator is updated by critiquing both real and generated data.
+    Its loss goes down as it predicts correctly if images are real or generated.
     """
 
     # Step for D_A

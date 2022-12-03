@@ -150,9 +150,15 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
             A_label = data["A_paths"]
             B_label = data["B_paths"]
             for i in np.arange(fake_A.shape[0]):
-                array_to_img(fake_A[i], f"{model_opts.output_path}/val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg")
+                array_to_img(
+                    fake_A[i],
+                    f"{model_opts.output_path}/val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg",
+                )
             for i in np.arange(fake_B.shape[0]):
-                array_to_img(fake_B[i], f"{model_opts.output_path}/val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg")
+                array_to_img(
+                    fake_B[i],
+                    f"{model_opts.output_path}/val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg",
+                )
 
             avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
             logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
@@ -163,19 +169,34 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
             fig, ax = plt.subplots(1, 2)
             ax[0, 0] = ax.imshow(fake_B[0])
             ax[0, 0].title.set_text(f"Epoch {epoch} A to B")
-            ax[0, 1] = ax.imshow(fake_A[0]) 
+            ax[0, 1] = ax.imshow(fake_A[0])
             ax[0, 1].title.set_text(f"Epoch {epoch} B to A")
-    
-        # Checkpoint the state 
+
+        # Checkpoint the state
         # @source: https://github.com/google/flax/discussions/1876
         logger.info("Saving checkpoint...")
-        g_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_G, target=g_state, step=epoch, overwrite=True)
+        g_state_checkpoint = checkpoints.save_checkpoint(
+            ckpt_dir=model_opts.checkpoint_directory_G,
+            target=g_state,
+            step=epoch,
+            overwrite=True,
+        )
         logger.info(f"G state checkpoint saved at {g_state_checkpoint}")
-        d_A_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_A, target=d_A_state, step=epoch, overwrite=True)
+        d_A_state_checkpoint = checkpoints.save_checkpoint(
+            ckpt_dir=model_opts.checkpoint_directory_D_A,
+            target=d_A_state,
+            step=epoch,
+            overwrite=True,
+        )
         logger.info(f"D_A state checkpoint saved at {d_A_state_checkpoint}")
-        d_B_state_checkpoint = checkpoints.save_checkpoint(ckpt_dir=model_opts.checkpoint_directory_D_B, target=d_B_state, step=epoch, overwrite=True)
+        d_B_state_checkpoint = checkpoints.save_checkpoint(
+            ckpt_dir=model_opts.checkpoint_directory_D_B,
+            target=d_B_state,
+            step=epoch,
+            overwrite=True,
+        )
         logger.info(f"D_B state checkpoint saved at {d_B_state_checkpoint}")
- 
+
     return (
         epoch_g_train_losses,
         epoch_d_a_train_losses,
@@ -185,7 +206,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
 
 
 # Root path = horse2zebra, monet2
-def get_train_ops(root_path): 
+def get_train_ops(root_path):
     model_opts = {
         "input_shape": [1, 256, 256, 3],
         "output_nc": 3,
@@ -208,10 +229,10 @@ def get_train_ops(root_path):
         "lambda_A": 3.0,
         "lambda_B": 3.0,
         "lambda_id": 0.5,
-        "checkpoint_directory_G": f"train_outputs/{root_path}/model_checkpoints/checkpoint_G", 
-        "checkpoint_directory_D_A": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_A", 
-        "checkpoint_directory_D_B": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_B", 
-        "output_path": f"train_outputs/{root_path}"
+        "checkpoint_directory_G": f"train_outputs/{root_path}/model_checkpoints/checkpoint_G",
+        "checkpoint_directory_D_A": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_A",
+        "checkpoint_directory_D_B": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_B",
+        "output_path": f"train_outputs/{root_path}",
     }
 
     dataset_opts = {
