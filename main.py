@@ -7,6 +7,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="CycleGAN", description="CycleGAN")
     parser.add_argument("--train", help="Flag for training", action="store_true")
     parser.add_argument("--predict", help="Flag for prediction, requires input path")
+    parser.add_argument("--path", help="File path for training dataset", required=True)
     parser.add_argument(
         "--playground", help="Argument for testing", action="store_true"
     )
@@ -14,11 +15,12 @@ if __name__ == "__main__":
     arg = parser.parse_args()
     if arg.train:
         logger.info("Starting training!")
-        train.train(train.model_opts, train.dataset_opts)
+        model_opts, dataset_opts = train.get_train_ops(arg.path)
+        train.train(model_opts, dataset_opts)
 
     elif arg.predict:
         logger.info("Predicting file: {}".format(arg.predict))
-        predict.predict(train.model_opts, arg.predict)
+        # predict.predict(train.model_opts, arg.predict)
 
     elif arg.playground:
         logger.info("test")

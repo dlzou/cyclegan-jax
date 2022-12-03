@@ -32,7 +32,9 @@ class CycleGan:
         )
         self.D = Discriminator(
             ndf=opts.ndf,
-
+            netD=opts.netD,
+            n_layers=opts.n_layers,
+            initializer=opts.initializer,
         )
         self.criterion_gan = GanLoss(gan_mode="lsgan")
         self.criterion_cycle = L1Loss()

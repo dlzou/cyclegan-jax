@@ -274,7 +274,6 @@ class GanLoss(nn.Module):
     that has the same size as the input.
     """
 
-    # TODO: Add gan_mode later
     def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
         """Initialize the GANLoss class.
         Parameters:
@@ -346,7 +345,6 @@ class GanLoss(nn.Module):
                 loss_value = jnp.mean(prediction)
         return loss_value
 
-    # TODO: Complete GAN Loss, reference here:
     # https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/networks.py#L210
 
 

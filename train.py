@@ -33,16 +33,16 @@ from img_utils import array_to_img
 
 
 def train(model_opts, dataset_opts, save_img=True, plt_img=False):
-    logger.info("Cleaning train_img/ directory ...")
-    os.system("rm -f train_img/*")
-    logger.info(f"Training with configuration: {model_opts}")
-
     model_opts = SimpleNamespace(**model_opts)
-    model = CycleGan(model_opts)
     training_data, validation_data = dataset.create_dataset(dataset_opts)
+
+    logger.info("Cleaning val_img/ directory ...")
+    os.system(f"rm -f {model_opts.output_path}/val_img/*")
+    logger.info(f"Training with configuration: {model_opts}")
 
     # Initialize States
     key = jax.random.PRNGKey(1337)
+    model = CycleGan(model_opts)
 
     logger.info("Creating CycleGAN states and initializing the image pool...")
     key, g_state = create_generator_state(
@@ -150,9 +150,9 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
             A_label = data["A_paths"]
             B_label = data["B_paths"]
             for i in np.arange(fake_A.shape[0]):
-                array_to_img(fake_A[i], f"val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg")
+                array_to_img(fake_A[i], f"{model_opts.output_path}/val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg")
             for i in np.arange(fake_B.shape[0]):
-                array_to_img(fake_B[i], f"val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg")
+                array_to_img(fake_B[i], f"{model_opts.output_path}/val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg")
 
             avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
             logger.info(f"Epoch {epoch} avg G validation loss: {avg_g_val_loss}")
@@ -184,47 +184,51 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     )
 
 
-model_opts = {
-    "input_shape": [1, 256, 256, 3],
-    "output_nc": 3,
-    "ngf": 32,
-    "n_res_blocks": 6,
-    "dropout_rate": 0.5,
-    "ndf": 64,
-    "netD": "n_layers",
-    "n_layers": 3,
-    "gan_mode": "lsgan",  # default value from github [vanilla| lsgan | wgangp]
-    "epochs": 100,
-    "learning_rate": 0.0002,
-    "beta1": 0.5,
-    "beta2": 0.999,
-    "initializer": jax.nn.initializers.normal(stddev=0.02),
-    "pool_size": 50,
-    # @source https://github.com/junyanz/CycleGAN/issues/68
-    # Lambdas are set with defaults from the source code
-    # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
-    "lambda_A": 10.0,
-    "lambda_B": 10.0,
-    "lambda_id": 0.5,
-    "checkpoint_directory_G": "model_checkpoints/checkpoint_G", 
-    "checkpoint_directory_D_A": "model_checkpoints/checkpoint_D_A", 
-    "checkpoint_directory_D_B": "model_checkpoints/checkpoint_D_B", 
-}
+# Root path = horse2zebra, monet2
+def get_train_ops(root_path): 
+    model_opts = {
+        "input_shape": [1, 256, 256, 3],
+        "output_nc": 3,
+        "ngf": 32,
+        "n_res_blocks": 6,
+        "dropout_rate": 0.5,
+        "ndf": 64,
+        "netD": "n_layers",
+        "n_layers": 3,
+        "gan_mode": "wgangp",  # default value from github [vanilla | lsgan | wgangp]
+        "epochs": 100,
+        "learning_rate": 0.0002,
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "initializer": jax.nn.initializers.normal(stddev=0.02),
+        "pool_size": 50,
+        # @source https://github.com/junyanz/CycleGAN/issues/68
+        # Lambdas are set with defaults from the source code
+        # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
+        "lambda_A": 3.0,
+        "lambda_B": 3.0,
+        "lambda_id": 0.5,
+        "checkpoint_directory_G": f"train_outputs/{root_path}/model_checkpoints/checkpoint_G", 
+        "checkpoint_directory_D_A": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_A", 
+        "checkpoint_directory_D_B": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_B", 
+        "output_path": f"train_outputs/{root_path}"
+    }
 
-dataset_opts = {
-    "dataset_mode": "unaligned",
-    "max_dataset_size": float("inf"),
-    "preprocess": "resize_and_crop",
-    "no_flip": True,
-    "display_winsize": 256,
-    "num_threads": 4,
-    "train_set_ratio": 0.85,
-    "batch_size": 1,
-    "load_size": 286,
-    "crop_size": 256,
-    "dataroot": "./horse2zebra",
-    "direction": "AtoB",
-    "input_nc": 3,
-    "output_nc": 3,
-    "serial_batches": False,
-}
+    dataset_opts = {
+        "dataset_mode": "unaligned",
+        "max_dataset_size": float("inf"),
+        "preprocess": "resize_and_crop",
+        "no_flip": True,
+        "display_winsize": 256,
+        "num_threads": 4,
+        "train_set_ratio": 0.85,
+        "batch_size": 1,
+        "load_size": 286,
+        "crop_size": 256,
+        "dataroot": f"./{root_path}",
+        "direction": "AtoB",
+        "input_nc": 3,
+        "output_nc": 3,
+        "serial_batches": False,
+    }
+    return model_opts, dataset_opts

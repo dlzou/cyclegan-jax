@@ -7,3 +7,4 @@ def info(msg):
     # Write with time stamp
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     f.write(timestamp + " " + msg + "\n")
+    f.close()
