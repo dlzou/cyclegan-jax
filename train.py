@@ -78,8 +78,10 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     epoch_g_val_losses = []
 
     # for epoch in range(model_opts.epochs):
-    for epoch in range(100):
-        logger.info(f"\n========START OF EPOCH {epoch}========")
+    for epoch in range(model_opts.epochs):
+        logger.info(
+            f"\n========{model_opts.root_path}: Start of Epoch {epoch}========"
+        )
 
         # Training stage
         g_train_losses = []
@@ -206,7 +208,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
 
 
 # Root path = horse2zebra, monet2
-def get_train_ops(root_path):
+def get_default_train_ops(root_path):
     model_opts = {
         "input_shape": [1, 256, 256, 3],
         "output_nc": 3,
@@ -217,7 +219,7 @@ def get_train_ops(root_path):
         "netD": "n_layers",
         "n_layers": 3,
         "gan_mode": "wgangp",  # default value from github [vanilla | lsgan | wgangp]
-        "epochs": 100,
+        "epochs": 150,
         "learning_rate": 0.0002,
         "beta1": 0.5,
         "beta2": 0.999,
@@ -226,13 +228,14 @@ def get_train_ops(root_path):
         # @source https://github.com/junyanz/CycleGAN/issues/68
         # Lambdas are set with defaults from the source code
         # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
-        "lambda_A": 3.0,
-        "lambda_B": 3.0,
+        "lambda_A": 7.0,
+        "lambda_B": 7.0,
         "lambda_id": 0.5,
         "checkpoint_directory_G": f"train_outputs/{root_path}/model_checkpoints/checkpoint_G",
         "checkpoint_directory_D_A": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_A",
         "checkpoint_directory_D_B": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_B",
         "output_path": f"train_outputs/{root_path}",
+        "root_path": root_path,
     }
 
     dataset_opts = {

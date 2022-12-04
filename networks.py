@@ -124,7 +124,8 @@ class Generator(nn.Module):
 
         # Add skip connection between generator input and output.
         # Reference: https://github.com/leehomyc/cyclegan-1
-        return x + input_x
+        # return x + input_x
+        return x
 
 
 class ResnetBlock(nn.Module):

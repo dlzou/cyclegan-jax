@@ -15,12 +15,12 @@ if __name__ == "__main__":
     arg = parser.parse_args()
     if arg.train:
         logger.info("Starting training!")
-        model_opts, dataset_opts = train.get_train_ops(arg.path)
+        model_opts, dataset_opts = train.get_default_train_ops(arg.path)
         train.train(model_opts, dataset_opts)
 
     elif arg.predict:
         logger.info("Predicting file: {}".format(arg.predict))
-        # predict.predict(train.model_opts, arg.predict)
+        predict.predict(train.model_opts, arg.predict)
 
     elif arg.playground:
         logger.info("test")
