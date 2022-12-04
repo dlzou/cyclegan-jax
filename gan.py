@@ -93,7 +93,7 @@ class CycleGan:
 
         return (fake_B, recover_A, fake_A, recover_B)
 
-    def run_single_generator_forward(self, rngs, params, real_data, direction="A"):
+    def run_single_generator_forward(self, rngs, params, real_data, start="A"):
         """
         Args:
             rngs: {"dropout": ...}
@@ -105,14 +105,14 @@ class CycleGan:
         params_G_B = params[1]
 
         # Forward through G
-        if direction == "A":
+        if start == "A":
             fake = self.G.apply(
                 {"params": params_G_A}, real_data, train=False, rngs=rngs
             )  # G_A(A)
             recover = self.G.apply(
                 {"params": params_G_B}, fake, train=False, rngs=rngs
             )  # G_B(G_A(A))
-        elif direction == "B":
+        elif start == "B":
             fake = self.G.apply(
                 {"params": params_G_B}, real_data, train=False, rngs=rngs
             )  # G_A(A)
@@ -340,11 +340,11 @@ def generator_prediction(
     model: CycleGan,
     g_state: TrainState,
     real_data: jnp.ndarray,
-    direction: str,
+    start: str,
 ):
     key, dropout_key = jax.random.split(key)
 
     generated_data = model.run_single_generator_forward(
-        {"dropout": dropout_key}, g_state.params, real_data, direction=direction
+        {"dropout": dropout_key}, g_state.params, real_data, start=start
     )
     return key, generated_data

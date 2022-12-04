@@ -37,7 +37,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     training_data, validation_data = dataset.create_dataset(dataset_opts)
 
     logger.info("Cleaning val_img/ directory ...")
-    os.system(f"rm -f {model_opts.output_path}/val_img/*")
+    os.system(f"rm -f {os.path.join(model_opts.val_img_path, '*')}")
     logger.info(f"Training with configuration: {model_opts}")
 
     # Initialize States
@@ -80,7 +80,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     # for epoch in range(model_opts.epochs):
     for epoch in range(model_opts.epochs):
         logger.info(
-            f"\n========{model_opts.root_path}: Start of Epoch {epoch}========"
+            f"\n========{model_opts.model_name}: Start of Epoch {epoch}========"
         )
 
         # Training stage
@@ -154,12 +154,18 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
             for i in np.arange(fake_A.shape[0]):
                 array_to_img(
                     fake_A[i],
-                    f"{model_opts.output_path}/val_img/{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg",
+                    os.path.join(
+                        {model_opts.val_img_path},
+                        f"{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg",
+                    ),
                 )
             for i in np.arange(fake_B.shape[0]):
                 array_to_img(
                     fake_B[i],
-                    f"{model_opts.output_path}/val_img/{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg",
+                    os.path.join(
+                        {model_opts.val_img_path},
+                        f"{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg",
+                    ),
                 )
 
             avg_g_val_loss = jnp.mean(jnp.array(g_val_losses))
@@ -207,8 +213,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     )
 
 
-# Root path = horse2zebra, monet2
-def get_default_train_ops(root_path):
+def get_default_opts(data_path, model_path):
     model_opts = {
         "input_shape": [1, 256, 256, 3],
         "output_nc": 3,
@@ -231,11 +236,20 @@ def get_default_train_ops(root_path):
         "lambda_A": 7.0,
         "lambda_B": 7.0,
         "lambda_id": 0.5,
-        "checkpoint_directory_G": f"train_outputs/{root_path}/model_checkpoints/checkpoint_G",
-        "checkpoint_directory_D_A": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_A",
-        "checkpoint_directory_D_B": f"train_outputs/{root_path}/model_checkpoints/checkpoint_D_B",
-        "output_path": f"train_outputs/{root_path}",
-        "root_path": root_path,
+        "data_path": data_path,
+        "model_path": model_path,
+        "model_name": model_path.split("/")[-1],
+        "checkpoint_directory_G": os.path.join(
+            model_path, "model_checkpoints", "checkpoint_G"
+        ),
+        "checkpoint_directory_D_A": os.path.join(
+            model_path, "model_checkpoints", "checkpoint_D_A"
+        ),
+        "checkpoint_directory_D_B": os.path.join(
+            model_path, "model_checkpoints", "checkpoint_D_B"
+        ),
+        "val_img_path": os.path.join(model_path, "val_img"),
+        "pred_img_path": os.path.join(model_path, "pred_img"),
     }
 
     dataset_opts = {
@@ -249,7 +263,7 @@ def get_default_train_ops(root_path):
         "batch_size": 1,
         "load_size": 286,
         "crop_size": 256,
-        "dataroot": f"./{root_path}",
+        "dataroot": f"./{data_path}",
         "direction": "AtoB",
         "input_nc": 3,
         "output_nc": 3,
