@@ -7,14 +7,13 @@ References:
     https://github.com/google/flax/blob/main/examples/mnist/train.py
 """
 
+from types import SimpleNamespace
 import os
 
 from flax.training import checkpoints
-from types import SimpleNamespace
 from tqdm import tqdm
 import jax.numpy as jnp
 import jax
-import logger
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
@@ -31,6 +30,7 @@ from gan import (
 import dataset
 import image_pool
 from img_utils import array_to_img
+import logger
 
 
 def create_lr_schedule_fn(opts, steps_per_epoch):
@@ -241,6 +241,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
         epoch_d_a_train_losses,
         epoch_d_b_train_losses,
         epoch_g_val_losses,
+        learning_rates,
     )
 
 
@@ -254,7 +255,7 @@ def get_default_opts(data_path, model_path):
         "ndf": 64,
         "netD": "n_layers",
         "n_layers": 3,
-        "gan_mode": "wgangp",  # default value from github [vanilla | lsgan | wgangp]
+        "gan_mode": "wgangp",  # [vanilla | lsgan | wgangp]
         "epochs": 150,
         "decay_after_epochs": 75,
         "learning_rate": 0.0002,

@@ -1,8 +1,8 @@
-import torch.utils.data
-from dataset.base_dataset import BaseDataset
-from dataset.unaligned_dataset import UnalignedDataset
-import os
 from types import SimpleNamespace
+
+import torch.utils.data
+
+from dataset.unaligned_dataset import UnalignedDataset
 
 
 def create_dataset(opt):

@@ -1,10 +1,11 @@
+from types import SimpleNamespace
 import os
 
 from flax.training import checkpoints
-from types import SimpleNamespace
 import jax.numpy as jnp
 import jax
 import matplotlib.pyplot as plt
+
 import logger
 
 from gan import (

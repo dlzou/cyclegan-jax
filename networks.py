@@ -11,12 +11,9 @@ References:
 from functools import partial
 from typing import Callable
 
-import numpy as np
+from flax import linen as nn
 import jax
 import jax.numpy as jnp
-
-# import flax.linen as nn
-from flax import linen as nn
 
 
 class Generator(nn.Module):
