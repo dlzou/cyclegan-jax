@@ -1,4 +1,4 @@
-# CS 182 Final Project
+# CycleGAN-JAX
 
 [CycleGAN](https://junyanz.github.io/CycleGAN/) is a deep learning architecture for image-to-image style translation. In this project, we reimplement it using the [JAX](https://jax.readthedocs.io/en/latest/) framework.
 
@@ -23,7 +23,7 @@ conda create -n cs182-proj python=3.9
 conda activate cs182-proj
 ```
 
-If CUDA is available:
+If CUDA is available (highly recommended for training):
 
 ```sh
 pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
@@ -38,7 +38,8 @@ pip install --upgrade "jax[cpu]"
 Finally:
 
 ```sh
-pip install flax torch torchvision jupyter tqdm
+pip install flax jupyter tqdm
+pip install torch torchvision # For data loading
 ```
 
 ## Downloading Data
