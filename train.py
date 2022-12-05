@@ -14,9 +14,10 @@ from types import SimpleNamespace
 from tqdm import tqdm
 import jax.numpy as jnp
 import jax
+import logger
 import matplotlib.pyplot as plt
 import numpy as np
-import logger
+import optax
 import torch
 
 from gan import (
@@ -32,6 +33,25 @@ import image_pool
 from img_utils import array_to_img
 
 
+def create_lr_schedule_fn(opts, steps_per_epoch):
+    """
+    https://flax.readthedocs.io/en/latest/guides/lr_schedule.html
+    Args:
+        decay_after_epochs: specify epoch after which lr linearly decays to 0.
+        base_lr: initial learning rate
+        stepcs_per_epoch: steps per epoch
+    """
+    schedule_fn = optax.piecewise_interpolate_schedule(
+        interpolate_type="linear",
+        init_value=opts.learning_rate,
+        boundaries_and_scales={
+            opts.decay_after_epochs * steps_per_epoch: 1.0,
+            opts.epochs * steps_per_epoch: 0.0,
+        },
+    )
+    return schedule_fn
+
+
 def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     model_opts = SimpleNamespace(**model_opts)
     training_data, validation_data = dataset.create_dataset(dataset_opts)
@@ -39,6 +59,9 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     logger.info("Cleaning val_img/ directory ...")
     os.system(f"rm -f {os.path.join(model_opts.val_img_path, '*')}")
     logger.info(f"Training with configuration: {model_opts}")
+
+    # Create learning rate scheduler
+    lr_schedule_fn = create_lr_schedule_fn(model_opts, len(training_data))
 
     # Initialize States
     key = jax.random.PRNGKey(1337)
@@ -49,25 +72,25 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
         key,
         model,
         model_opts.input_shape,
-        model_opts.learning_rate,
+        lr_schedule_fn,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both G_A and G_B, and optimizer
     key, d_A_state = create_discriminator_state(
         key,
         model,
         model_opts.input_shape,
-        model_opts.learning_rate,
+        lr_schedule_fn,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both D_A and D_B, and optimizer
     key, d_B_state = create_discriminator_state(
         key,
         model,
         model_opts.input_shape,
-        model_opts.learning_rate,
+        lr_schedule_fn,
         model_opts.beta1,
     )  # contain apply_fn=None, params of both D_A and D_B, and optimizer
 
-    # Initialize Image Pools
+    # Initialize image pools
     pool_A = image_pool.ImagePool(model_opts.pool_size)
     pool_B = image_pool.ImagePool(model_opts.pool_size)
 
@@ -77,10 +100,18 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
 
     epoch_g_val_losses = []
 
+    learning_rates = []
+
     # for epoch in range(model_opts.epochs):
     for epoch in range(model_opts.epochs):
         logger.info(
             f"\n========{model_opts.model_name}: Start of Epoch {epoch}========"
+        )
+        lr = lr_schedule_fn(g_state.step)
+        logger.info(f"Epoch {epoch} learning rate: {lr}")
+        learning_rates.append(lr)
+        logger.info(
+            f"g_state.step={g_state.step}, d_a_state.step={d_A_state.step}, d_b_state.step={d_A_state.step}"
         )
 
         # Training stage
@@ -155,7 +186,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
                 array_to_img(
                     fake_A[i],
                     os.path.join(
-                        {model_opts.val_img_path},
+                        model_opts.val_img_path,
                         f"{epoch}_fake_A_{B_label[i].split('/')[-1][:-4]}.jpg",
                     ),
                 )
@@ -163,7 +194,7 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
                 array_to_img(
                     fake_B[i],
                     os.path.join(
-                        {model_opts.val_img_path},
+                        model_opts.val_img_path,
                         f"{epoch}_fake_B_{A_label[i].split('/')[-1][:-4]}.jpg",
                     ),
                 )
@@ -225,6 +256,7 @@ def get_default_opts(data_path, model_path):
         "n_layers": 3,
         "gan_mode": "wgangp",  # default value from github [vanilla | lsgan | wgangp]
         "epochs": 150,
+        "decay_after_epochs": 75,
         "learning_rate": 0.0002,
         "beta1": 0.5,
         "beta2": 0.999,

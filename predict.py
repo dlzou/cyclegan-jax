@@ -12,6 +12,7 @@ from gan import (
     create_generator_state,
     generator_prediction,
 )
+from train import create_lr_schedule_fn
 from img_utils import array_to_img, img_to_array
 
 
@@ -29,7 +30,7 @@ def predict(model_opts, start: str, save_img=True, plt_img=False):
         key,
         model,
         model_opts.input_shape,
-        model_opts.learning_rate,
+        create_lr_schedule_fn(model_opts, 1),
         model_opts.beta1,
     )  # contain apply_fn=None, params of both G_A and G_B, and optimizer
     g_state = checkpoints.restore_checkpoint(

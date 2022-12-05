@@ -10,7 +10,7 @@ References:
 """
 
 from functools import partial
-from typing import Sequence, Tuple
+from typing import Callable, Sequence, Tuple
 
 from flax.training.train_state import TrainState
 import jax.numpy as jnp
@@ -198,7 +198,7 @@ def create_generator_state(
     key: jnp.ndarray,
     model: CycleGan,
     input_shape: Sequence[int],
-    learning_rate: float,
+    lr_schedule_fn: Callable,
     beta_1: float,
 ):
     key, params_key = jax.random.split(key)
@@ -206,7 +206,7 @@ def create_generator_state(
     params_G = model.get_generator_params(
         {"params": params_key, "dropout": dropout_key}, input_shape
     )  # get params of both G_A and G_B
-    tx = optax.adam(learning_rate, b1=beta_1)
+    tx = optax.adam(lr_schedule_fn, b1=beta_1)
     return key, TrainState.create(
         apply_fn=None,
         params=params_G,
@@ -218,14 +218,14 @@ def create_discriminator_state(
     key: jnp.ndarray,
     model: CycleGan,
     input_shape: Sequence[int],
-    learning_rate: float,
+    lr_schedule_fn: Callable,
     beta_1: float,
 ):
     key, params_key = jax.random.split(key)
     params = model.get_discriminator_params(
         {"params": params_key}, input_shape
     )  # parameter for eithe G_A or G_B
-    tx = optax.adam(learning_rate, b1=beta_1)
+    tx = optax.adam(lr_schedule_fn, b1=beta_1)
     return key, TrainState.create(
         apply_fn=None,
         params=params,
