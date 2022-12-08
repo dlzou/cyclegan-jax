@@ -56,8 +56,9 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
     model_opts = SimpleNamespace(**model_opts)
     training_data, validation_data = dataset.create_dataset(dataset_opts)
 
-    logger.info("Cleaning val_img/ directory ...")
+    logger.info("Cleaning and creating val_img/ directory ...")
     os.system(f"rm -f {os.path.join(model_opts.val_img_path, '*')}")
+    os.system(f"mkdir -p {model_opts.val_img_path}")
     logger.info(f"Training with configuration: {model_opts}")
 
     # Create learning rate scheduler
@@ -266,8 +267,8 @@ def get_default_opts(data_path, model_path):
         # @source https://github.com/junyanz/CycleGAN/issues/68
         # Lambdas are set with defaults from the source code
         # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
-        "lambda_A": 7.0,
-        "lambda_B": 7.0,
+        "lambda_A": 10.0,
+        "lambda_B": 10.0,
         "lambda_id": 0.5,
         "data_path": data_path,
         "model_path": model_path,

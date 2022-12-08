@@ -1,6 +1,10 @@
 # CycleGAN-JAX
 
-[CycleGAN](https://junyanz.github.io/CycleGAN/) is a deep learning architecture for image-to-image style translation. In this project, we reimplement it using the [JAX](https://jax.readthedocs.io/en/latest/) framework.
+[CycleGAN](https://junyanz.github.io/CycleGAN/) is a deep learning architecture for image-to-image translation that can be trained on unpaired datatsets. We reimplement and train it on several datasets using the [JAX](https://jax.readthedocs.io/en/latest/) framework.
+
+## Curated Outputs
+
+![horse2zebra](curated_outputs/horse2zebra.png)
 
 ## Installing Dependencies
 
@@ -44,13 +48,17 @@ To generated an image, run
 python main.py --predict <A|B> -d <file path> -m <model checkpoints and outputs path>
 ```
 
-where <A|B> is the set that the starting image belongs to. 
+where `<A|B>` is the set that the starting image belongs to. 
+
+Hyperparameters and other configuration options are gathered in `train.get_default_opts`.
 
 ## Downloading Data
 
-Grant execution permission to script, download data and unzip. For example,
+Grant execution permission to `get-*.sh` script, then run. For example,
 
 ```sh
 chmod +x ./get-horse2zebra.sh
 ./get-horse2zebra.sh
 ```
+
+The datasets we use are [hosted](https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/) by the original CycleGAN authors.

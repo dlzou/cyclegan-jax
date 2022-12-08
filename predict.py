@@ -22,6 +22,7 @@ def predict(model_opts, start: str, save_img=True, plt_img=False):
     filename = model_opts.data_path
     end = "B" if start == "A" else "A"
     real_data = jnp.expand_dims(img_to_array(filename), axis=0)
+    os.system(f"mkdir -p {model_opts.pred_img_path}")
 
     # Restore states
     logger.info("Restoring states...")
