@@ -24,14 +24,19 @@ class Generator(nn.Module):
         output_nc (int)     -- the number of channels in output images
         ngf (int)           -- the number of filters in the last conv layer
         n_res_blocks (int)  -- the number of ResNet blocks
-        use_dropout (bool)  -- if use dropout layers
+        drop_rate (float)   -- the rate for dropout sampling
+        upsample_mode (str) -- deconv or bilinear upsampling
         initializer (fn)    -- function for initializing parameters
+
+    Reference for upsampling:
+        https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/issues/190#issuecomment-358546675
     """
 
     output_nc: int = 3
     ngf: int = 32
     n_res_blocks: int = 6
     dropout_rate: float = 0.5
+    upsample_mode: str = "deconv"
     initializer: Callable = jax.nn.initializers.normal(stddev=0.02)
 
     @nn.compact
@@ -90,19 +95,48 @@ class Generator(nn.Module):
 
         # Upsampling layers.
         model = []
-        for i in range(n_downsample_layers):
-            mult = 2 ** (n_downsample_layers - i)
-            model += [
-                nn.ConvTranspose(
-                    features=(self.ngf * mult) // 2,
-                    kernel_size=[3, 3],
-                    strides=[2, 2],
-                    padding="SAME",
-                    kernel_init=self.initializer,
-                ),
-                nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
-                nn.relu,
-            ]
+        if self.upsample_mode == "bilinear":
+            for i in range(n_downsample_layers):
+                mult = 2 ** (n_downsample_layers - i)
+                model += [
+                    partial(
+                        jax.image.resize,
+                        shape=(
+                            x.shape[0],
+                            x.shape[1] * 2 ** (i + 1),
+                            x.shape[2] * 2 ** (i + 1),
+                            x.shape[3],
+                        ),
+                        method="bilinear",
+                    ),
+                    nn.Conv(
+                        features=(self.ngf * mult) // 2,
+                        kernel_size=[3, 3],
+                        strides=[1, 1],
+                        padding="SAME",
+                        kernel_init=self.initializer,
+                    ),
+                    nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
+                    nn.relu,
+                ]
+        elif self.upsample_mode == "deconv":
+            for i in range(n_downsample_layers):
+                mult = 2 ** (n_downsample_layers - i)
+                model += [
+                    nn.ConvTranspose(
+                        features=(self.ngf * mult) // 2,
+                        kernel_size=[3, 3],
+                        strides=[2, 2],
+                        padding="SAME",
+                        kernel_init=self.initializer,
+                    ),
+                    nn.GroupNorm(num_groups=None, group_size=1),  # instance norm
+                    nn.relu,
+                ]
+        else:
+            NotImplementedError(
+                "Generator upsample_mode [%s] is not recognized" % self.upsample_mode
+            )
         upsample = nn.Sequential(model)
         x = upsample(x)
 
@@ -111,6 +145,7 @@ class Generator(nn.Module):
             nn.Conv(
                 features=self.output_nc,
                 kernel_size=[7, 7],
+                strides=[1, 1],
                 padding="SAME",
                 kernel_init=self.initializer,
             )

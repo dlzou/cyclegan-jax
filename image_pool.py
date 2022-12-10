@@ -1,3 +1,9 @@
+"""Image pool to train discriminators on samples of past images.
+
+Reference:
+    https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/util/image_pool.py
+"""
+
 import random
 import jax.numpy as jnp
 

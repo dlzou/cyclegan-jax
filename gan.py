@@ -34,6 +34,7 @@ class CycleGan:
             ngf=opts.ngf,
             n_res_blocks=opts.n_res_blocks,
             dropout_rate=opts.dropout_rate,
+            upsample_mode=opts.upsample_mode,
             initializer=opts.initializer,
         )
         self.D = Discriminator(
@@ -42,7 +43,7 @@ class CycleGan:
             n_layers=opts.n_layers,
             initializer=opts.initializer,
         )
-        self.criterion_gan = GanLoss(gan_mode="lsgan")
+        self.criterion_gan = GanLoss(gan_mode=opts.gan_mode)
         self.criterion_cycle = L1Loss()
         self.criterion_id = L1Loss()
 
@@ -99,7 +100,7 @@ class CycleGan:
             rngs: {"dropout": ...}
             params: (params_G_A, params_G_B)
             real_data: (real_A, real_B)
-            direction: whether starting from set A or B
+            start: whether starting from set A or B
         """
         params_G_A = params[0]
         params_G_B = params[1]

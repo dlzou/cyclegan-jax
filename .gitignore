@@ -1,8 +1,8 @@
 __pycache__/
-horse2zebra/
-apple2orange/
-monet2photo/
-vangogh2photo/
+horse2zebra*/
+apple2orange*/
+monet2photo*/
+vangogh2photo*/
 model_checkpoints/
 *_img/
 testA/

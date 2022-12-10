@@ -1,3 +1,9 @@
+""" Dataset loading and iterating utilities.
+
+Reference:
+    https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/data/__init__.py
+"""
+
 from types import SimpleNamespace
 
 import torch.utils.data

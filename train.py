@@ -248,28 +248,30 @@ def train(model_opts, dataset_opts, save_img=True, plt_img=False):
 
 def get_default_opts(data_path, model_path):
     model_opts = {
-        "input_shape": [1, 256, 256, 3],
+        # Generator
         "output_nc": 3,
         "ngf": 32,
         "n_res_blocks": 6,
         "dropout_rate": 0.5,
+        "upsample_mode": "deconv",  # [deconv | bilinear]
+        # Discriminator
         "ndf": 64,
         "netD": "n_layers",
         "n_layers": 3,
-        "gan_mode": "wgangp",  # [vanilla | lsgan | wgangp]
-        "epochs": 150,
-        "decay_after_epochs": 75,
+        # Shared
+        "input_shape": [1, 256, 256, 3],
+        "initializer": jax.nn.initializers.normal(stddev=0.02),
+        "gan_mode": "lsgan",  # [vanilla | lsgan | wgangp]
+        "epochs": 100,
+        "decay_after_epochs": 50,
         "learning_rate": 0.0002,
         "beta1": 0.5,
         "beta2": 0.999,
-        "initializer": jax.nn.initializers.normal(stddev=0.02),
         "pool_size": 50,
-        # @source https://github.com/junyanz/CycleGAN/issues/68
-        # Lambdas are set with defaults from the source code
-        # @source: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/e2c7618a2f2bf4ee012f43f96d1f62fd3c3bec89/models/cycle_gan_model.py#L41
-        "lambda_A": 10.0,
+        "lambda_A": 10.0,  # https://github.com/junyanz/CycleGAN/issues/68
         "lambda_B": 10.0,
         "lambda_id": 0.5,
+        # Environment
         "data_path": data_path,
         "model_path": model_path,
         "model_name": model_path.split("/")[-1],
