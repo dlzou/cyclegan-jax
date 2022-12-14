@@ -354,7 +354,7 @@ class GanLoss(nn.Module):
                 )
             loss_value = jnp.mean((prediction - target_array) ** 2)
 
-        if self.gan_mode in ["vanilla"]:  # use BCEWithLogitsLoss
+        elif self.gan_mode in ["vanilla"]:  # use BCEWithLogitsLoss
             # source: https://github.com/deepchem/jaxchem/blob/master/jaxchem/loss/binary_cross_entropy_with_logits.py#L4-L37
             if target_array.shape != prediction.shape:
                 raise ValueError(
@@ -362,7 +362,6 @@ class GanLoss(nn.Module):
                         target_array.shape, prediction.shape
                     )
                 )
-
             max_val = jnp.clip(-prediction, 0, None)
             loss_value = (
                 prediction
